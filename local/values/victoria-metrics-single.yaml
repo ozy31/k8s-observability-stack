@@ -1,0 +1,12 @@
+---
+server:
+  retentionPeriod: 7d
+  persistentVolume:
+    storageClassName: standard
+    size: 5Gi
+  resources:
+    requests:
+      cpu: 100m
+      memory: 256Mi
+    limits:
+      memory: 1Gi

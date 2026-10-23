@@ -1,0 +1,9 @@
+# Three-node kind cluster for trying the stack locally.
+---
+kind: Cluster
+apiVersion: kind.x-k8s.io/v1alpha4
+name: observability
+nodes:
+  - role: control-plane
+  - role: worker
+  - role: worker

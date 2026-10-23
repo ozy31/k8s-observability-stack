@@ -1,0 +1,25 @@
+# Local (kind) overrides — layered after values/kube-prometheus-stack.yaml.
+---
+prometheus:
+  prometheusSpec:
+    replicas: 1
+    retention: 1d
+    retentionSize: ""
+    externalLabels:
+      cluster: kind
+    storageSpec: {}
+    resources:
+      requests:
+        cpu: 100m
+        memory: 512Mi
+      limits:
+        memory: 2Gi
+
+alertmanager:
+  alertmanagerSpec:
+    replicas: 1
+    storage: {}
+
+grafana:
+  service:
+    type: ClusterIP

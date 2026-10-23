@@ -1,0 +1,9 @@
+---
+alloy:
+  extraEnv:
+    - name: CLUSTER_NAME
+      value: kind
+    - name: NODE_NAME
+      valueFrom:
+        fieldRef:
+          fieldPath: spec.nodeName

@@ -1,0 +1,73 @@
+---
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  yamllint:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.13"
+      - run: pip install yamllint==1.38.0
+      - run: make lint
+
+  rules:
+    name: alert rules (promtool)
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v5
+      - name: Install tools
+        run: ./scripts/install-tools.sh && echo "$PWD/bin" >> "$GITHUB_PATH"
+      - name: promtool check rules + metadata policy
+        run: make rules-check
+      - name: promtool test rules
+        run: make rules-test
+      - name: Sloth output is up to date
+        run: make slo-check
+
+  alertmanager:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v5
+      - name: Install tools
+        run: ./scripts/install-tools.sh && echo "$PWD/bin" >> "$GITHUB_PATH"
+      - name: amtool check-config + routing tests
+        run: make alertmanager-check
+
+  dashboards:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v5
+      - name: Install tools
+        run: ./scripts/install-tools.sh && echo "$PWD/bin" >> "$GITHUB_PATH"
+      - name: Validate dashboard JSON (jq) and PromQL (promtool)
+        run: make dashboards-check
+
+  manifests:
+    name: helm template + kubeconform
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v5
+      - uses: azure/setup-helm@v4
+        with:
+          version: v3.19.0
+      - name: Install tools
+        run: ./scripts/install-tools.sh && echo "$PWD/bin" >> "$GITHUB_PATH"
+      - name: Validate the Alloy pipeline
+        run: make alloy-check
+      - name: Render all Applications and validate
+        run: make kubeconform
