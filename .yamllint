@@ -1,0 +1,23 @@
+---
+extends: default
+
+ignore: |
+  build/
+  slo/generated/
+
+rules:
+  line-length:
+    max: 160
+    # promtool test inputs are one series per line by design
+    ignore: |
+      tests/
+  document-start:
+    present: true
+  truthy:
+    allowed-values: ["true", "false"]
+    check-keys: false
+  comments:
+    min-spaces-from-content: 2
+  indentation:
+    spaces: 2
+    indent-sequences: consistent
