@@ -1,0 +1,37 @@
+# Prometheus Operator + CRDs, Prometheus, Alertmanager, Grafana, exporters.
+# ServerSideApply is required: the Prometheus Operator CRDs exceed the
+# 256KiB client-side last-applied annotation limit.
+---
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: kps
+  namespace: argocd
+  annotations:
+    argocd.argoproj.io/sync-wave: "0"
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+spec:
+  project: observability
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: monitoring
+  sources:
+    - repoURL: https://prometheus-community.github.io/helm-charts
+      chart: kube-prometheus-stack
+      targetRevision: 92.11.0
+      helm:
+        releaseName: kps
+        valueFiles:
+          - $values/values/kube-prometheus-stack.yaml
+          - $values/alertmanager/values.yaml
+    - repoURL: https://github.com/ozy31/k8s-observability-stack.git
+      targetRevision: main
+      ref: values
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
+      - ServerSideApply=true

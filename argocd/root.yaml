@@ -1,0 +1,24 @@
+# App-of-apps entry point. Apply once:
+#   kubectl apply -n argocd -f argocd/project.yaml -f argocd/root.yaml
+# Argo CD then manages everything under argocd/apps/ from Git.
+---
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: observability
+  namespace: argocd
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+spec:
+  project: observability
+  source:
+    repoURL: https://github.com/ozy31/k8s-observability-stack.git
+    targetRevision: main
+    path: argocd/apps
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: argocd
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true

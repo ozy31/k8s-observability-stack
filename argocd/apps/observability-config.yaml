@@ -1,0 +1,27 @@
+# Alert rules (PrometheusRule) and dashboards (ConfigMaps) from this repo.
+# Synced last so the PrometheusRule CRD from kube-prometheus-stack exists.
+---
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: observability-config
+  namespace: argocd
+  annotations:
+    argocd.argoproj.io/sync-wave: "3"
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+spec:
+  project: observability
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: monitoring
+  source:
+    repoURL: https://github.com/ozy31/k8s-observability-stack.git
+    targetRevision: main
+    path: deploy/config
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - ServerSideApply=true

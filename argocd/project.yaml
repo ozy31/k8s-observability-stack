@@ -1,0 +1,28 @@
+# AppProject scoping what the observability Applications may deploy.
+---
+apiVersion: argoproj.io/v1alpha1
+kind: AppProject
+metadata:
+  name: observability
+  namespace: argocd
+spec:
+  description: Metrics, logs, traces and alerting
+  sourceRepos:
+    - https://github.com/ozy31/k8s-observability-stack.git
+    - https://prometheus-community.github.io/helm-charts
+    - https://victoriametrics.github.io/helm-charts
+    - https://grafana.github.io/helm-charts
+    - https://grafana-community.github.io/helm-charts
+  destinations:
+    - namespace: argocd  # the child Application objects themselves
+      server: https://kubernetes.default.svc
+    - namespace: monitoring
+      server: https://kubernetes.default.svc
+    # kube-prometheus-stack installs ServiceMonitors for kube-system components
+    - namespace: kube-system
+      server: https://kubernetes.default.svc
+  clusterResourceWhitelist:
+    - group: "*"
+      kind: "*"
+  orphanedResources:
+    warn: true

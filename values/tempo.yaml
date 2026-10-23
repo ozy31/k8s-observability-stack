@@ -1,0 +1,57 @@
+# Grafana Tempo 3.x (optional) — single binary, S3 backend via IRSA.
+# Applications send OTLP directly to tempo.monitoring.svc:4317 (gRPC) or
+# :4318 (HTTP). Grafana links traces <-> logs via the Loki/Tempo datasources.
+---
+fullnameOverride: tempo
+
+serviceAccount:
+  create: true
+  name: tempo
+  annotations:
+    eks.amazonaws.com/role-arn: arn:aws:iam::111111111111:role/tempo-s3
+
+tempo:
+  reportingEnabled: false
+  retention: 168h  # 7 days
+  # Span metrics + service graph -> VictoriaMetrics (powers Grafana's service map).
+  metricsGenerator:
+    enabled: true
+    remoteWriteUrl: http://vmsingle-server.monitoring.svc:8428/api/v1/write
+    storage:
+      path: /var/tempo/generator
+  overrides:
+    defaults:
+      metrics_generator:
+        processors:
+          - service-graphs
+          - span-metrics
+  storage:
+    trace:
+      backend: s3
+      s3:
+        bucket: example-tempo-traces
+        endpoint: s3.eu-central-1.amazonaws.com
+        region: eu-central-1
+      wal:
+        path: /var/tempo/wal
+  receivers:
+    otlp:
+      protocols:
+        grpc:
+          endpoint: 0.0.0.0:4317
+        http:
+          endpoint: 0.0.0.0:4318
+  resources:
+    requests:
+      cpu: 200m
+      memory: 512Mi
+    limits:
+      memory: 2Gi
+
+persistence:
+  enabled: true
+  size: 10Gi
+  storageClassName: gp3
+
+serviceMonitor:
+  enabled: true

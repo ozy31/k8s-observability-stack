@@ -1,0 +1,34 @@
+# VictoriaMetrics single-node: long-term metrics storage (remote_write target).
+---
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: vmsingle
+  namespace: argocd
+  annotations:
+    argocd.argoproj.io/sync-wave: "0"
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+spec:
+  project: observability
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: monitoring
+  sources:
+    - repoURL: https://victoriametrics.github.io/helm-charts
+      chart: victoria-metrics-single
+      targetRevision: 0.49.0
+      helm:
+        releaseName: vmsingle
+        valueFiles:
+          - $values/values/victoria-metrics-single.yaml
+    - repoURL: https://github.com/ozy31/k8s-observability-stack.git
+      targetRevision: main
+      ref: values
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
+      - ServerSideApply=true

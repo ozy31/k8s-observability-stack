@@ -1,0 +1,40 @@
+# VictoriaMetrics single-node — long-term metrics storage.
+#
+# Prometheus remote_writes every sample here. Grafana's default datasource
+# points here, so dashboards can query months of history without Prometheus
+# keeping (and compacting) that data itself.
+#
+# Single-node vs cluster: vmsingle scales vertically and comfortably handles
+# a few million active series on one node. Move to victoria-metrics-cluster
+# (vminsert/vmselect/vmstorage) when you need replication, multi-AZ HA of the
+# storage layer, or ingestion beyond what one node can do.
+---
+fullnameOverride: vmsingle
+
+server:
+  # 13 months: year-over-year comparisons for capacity and cost reviews.
+  retentionPeriod: 13
+  extraArgs:
+    envflag.enable: true
+    envflag.prefix: VM_
+    loggerFormat: json
+    # Dedup identical samples from the two Prometheus HA replicas.
+    # Must equal the Prometheus scrape interval.
+    dedup.minScrapeInterval: 30s
+    # Protect the node from cardinality explosions.
+    search.maxUniqueTimeseries: "1000000"
+    storage.maxDailySeries: "5000000"
+  persistentVolume:
+    enabled: true
+    storageClassName: gp3
+    size: 200Gi
+  resources:
+    requests:
+      cpu: "1"
+      memory: 4Gi
+    limits:
+      memory: 8Gi
+  service:
+    servicePort: 8428
+  serviceMonitor:
+    enabled: true

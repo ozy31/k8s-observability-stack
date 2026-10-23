@@ -1,0 +1,202 @@
+# kube-prometheus-stack — Prometheus Operator, Prometheus, Alertmanager, Grafana,
+# kube-state-metrics and node-exporter.
+#
+# Role of Prometheus in this stack: scrape + evaluate rules + short local
+# retention. Long-term storage lives in VictoriaMetrics (remote_write below).
+# Alertmanager routing lives in ../alertmanager/values.yaml (layered on top).
+---
+fullnameOverride: kps
+
+crds:
+  enabled: true
+
+defaultRules:
+  create: true
+  rules:
+    # Replaced by the opinionated, unit-tested rules in alerts/.
+    kubernetesApps: false
+    kubernetesStorage: false
+    # Control-plane components are not scrapeable on managed clusters (EKS/GKE/AKS).
+    etcd: false
+    kubeControllerManager: false
+    kubeSchedulerAlerting: false
+    kubeSchedulerRecording: false
+    kubeProxy: false
+  # Individual upstream alerts superseded by alerts/kubernetes-nodes.yaml.
+  disabled:
+    KubeNodeNotReady: true
+    KubeNodePressure: true
+  # Every alert carries a runbook link; point this at your own runbooks if you fork.
+  runbookUrl: https://runbooks.prometheus-operator.dev/runbooks
+
+kubeEtcd:
+  enabled: false
+kubeControllerManager:
+  enabled: false
+kubeScheduler:
+  enabled: false
+kubeProxy:
+  enabled: false
+
+prometheus:
+  prometheusSpec:
+    # Short local retention: only long enough for the longest alerting window
+    # (3d SLO slow-burn) plus headroom. Dashboards read history from VictoriaMetrics.
+    retention: 4d
+    retentionSize: 45GB
+    walCompression: true
+    scrapeInterval: 30s
+    evaluationInterval: 30s
+
+    # Pick up ServiceMonitors / PodMonitors / PrometheusRules from every
+    # namespace and every release, not only the ones labelled for this chart.
+    ruleSelectorNilUsesHelmValues: false
+    serviceMonitorSelectorNilUsesHelmValues: false
+    podMonitorSelectorNilUsesHelmValues: false
+    probeSelectorNilUsesHelmValues: false
+    scrapeConfigSelectorNilUsesHelmValues: false
+
+    externalLabels:
+      cluster: prod-eu-1
+
+    remoteWrite:
+      - url: http://vmsingle-server.monitoring.svc:8428/api/v1/write
+        queueConfig:
+          capacity: 20000
+          maxSamplesPerSend: 10000
+          maxShards: 30
+        # Do not ship high-cardinality debug series to long-term storage.
+        writeRelabelConfigs:
+          - sourceLabels: [__name__]
+            regex: "apiserver_request_duration_seconds_bucket|etcd_request_duration_seconds_bucket|rest_client_request_duration_seconds_bucket"
+            action: drop
+
+    replicas: 2
+    podAntiAffinity: soft
+    resources:
+      requests:
+        cpu: 500m
+        memory: 3Gi
+      limits:
+        memory: 6Gi
+    storageSpec:
+      volumeClaimTemplate:
+        spec:
+          storageClassName: gp3
+          accessModes: [ReadWriteOnce]
+          resources:
+            requests:
+              storage: 50Gi
+
+alertmanager:
+  alertmanagerSpec:
+    replicas: 3
+    podAntiAffinity: soft
+    # Receiver credentials are mounted from this Secret and referenced via
+    # *_file fields in the Alertmanager config — never inlined in Git.
+    # Mounted at /etc/alertmanager/secrets/alertmanager-receivers/<key>
+    secrets:
+      - alertmanager-receivers
+    resources:
+      requests:
+        cpu: 50m
+        memory: 128Mi
+      limits:
+        memory: 256Mi
+    storage:
+      volumeClaimTemplate:
+        spec:
+          storageClassName: gp3
+          accessModes: [ReadWriteOnce]
+          resources:
+            requests:
+              storage: 2Gi
+
+grafana:
+  fullnameOverride: grafana
+  admin:
+    existingSecret: grafana-admin
+    userKey: admin-user
+    passwordKey: admin-password
+  persistence:
+    enabled: false
+  grafana.ini:
+    analytics:
+      check_for_updates: false
+      reporting_enabled: false
+    users:
+      viewers_can_edit: false
+  sidecar:
+    dashboards:
+      enabled: true
+      # Any ConfigMap in any namespace with this label becomes a dashboard.
+      label: grafana_dashboard
+      labelValue: "1"
+      searchNamespace: ALL
+      folderAnnotation: grafana_folder
+      provider:
+        foldersFromFilesStructure: true
+        allowUiUpdates: false
+    datasources:
+      enabled: true
+      defaultDatasourceEnabled: true
+      # Short-term, in-cluster Prometheus (uid: prometheus)
+      isDefaultDatasource: false
+      uid: prometheus
+  additionalDataSources:
+    - name: VictoriaMetrics
+      uid: victoriametrics
+      type: prometheus
+      url: http://vmsingle-server.monitoring.svc:8428
+      access: proxy
+      isDefault: true
+      jsonData:
+        timeInterval: 30s
+        prometheusType: Prometheus
+    - name: Loki
+      uid: loki
+      type: loki
+      url: http://loki-gateway.monitoring.svc
+      access: proxy
+      jsonData:
+        maxLines: 1000
+        derivedFields:
+          - name: TraceID
+            matcherRegex: '"?trace_?[iI][dD]"?[:=]"?(\w+)'
+            url: "$${__value.raw}"
+            datasourceUid: tempo
+    - name: Tempo
+      uid: tempo
+      type: tempo
+      url: http://tempo.monitoring.svc:3200
+      access: proxy
+      jsonData:
+        tracesToLogsV2:
+          datasourceUid: loki
+          spanStartTimeShift: -5m
+          spanEndTimeShift: 5m
+          filterByTraceID: true
+        serviceMap:
+          datasourceUid: victoriametrics
+        nodeGraph:
+          enabled: true
+  resources:
+    requests:
+      cpu: 100m
+      memory: 256Mi
+    limits:
+      memory: 512Mi
+
+kube-state-metrics:
+  # Expose pod/namespace labels needed for cost attribution by team.
+  metricLabelsAllowlist:
+    - namespaces=[team,cost-center]
+    - pods=[app.kubernetes.io/name]
+
+prometheus-node-exporter:
+  resources:
+    requests:
+      cpu: 20m
+      memory: 32Mi
+    limits:
+      memory: 64Mi
