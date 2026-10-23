@@ -1,0 +1,904 @@
+{
+  "uid": "loki-logs-overview",
+  "title": "Logs / Volume & Errors",
+  "description": "Log volume, noisiest apps, error lines and Loki ingestion health (discards, streams).",
+  "tags": [
+    "logs",
+    "loki"
+  ],
+  "timezone": "browser",
+  "editable": false,
+  "graphTooltip": 1,
+  "schemaVersion": 39,
+  "version": 1,
+  "refresh": "1m",
+  "time": {
+    "from": "now-6h",
+    "to": "now"
+  },
+  "fiscalYearStartMonth": 0,
+  "liveNow": false,
+  "weekStart": "",
+  "templating": {
+    "list": [
+      {
+        "type": "datasource",
+        "name": "loki",
+        "label": "Logs",
+        "query": "loki",
+        "hide": 0,
+        "refresh": 1,
+        "regex": "",
+        "current": {
+          "selected": false,
+          "text": "Loki",
+          "value": "loki"
+        },
+        "options": [],
+        "includeAll": false,
+        "multi": false
+      },
+      {
+        "type": "datasource",
+        "name": "metrics",
+        "label": "Metrics",
+        "query": "prometheus",
+        "hide": 0,
+        "refresh": 1,
+        "regex": "",
+        "current": {
+          "selected": false,
+          "text": "VictoriaMetrics",
+          "value": "victoriametrics"
+        },
+        "options": [],
+        "includeAll": false,
+        "multi": false
+      },
+      {
+        "type": "query",
+        "name": "namespace",
+        "label": "Namespace",
+        "datasource": {
+          "type": "loki",
+          "uid": "${loki}"
+        },
+        "definition": "label_values(namespace)",
+        "query": {
+          "type": 1,
+          "label": "namespace",
+          "stream": "",
+          "refId": "LokiVariableQueryEditor-VariableQuery"
+        },
+        "refresh": 2,
+        "sort": 1,
+        "hide": 0,
+        "regex": "",
+        "multi": true,
+        "includeAll": true,
+        "allValue": ".+",
+        "options": [],
+        "current": {
+          "selected": true,
+          "text": [
+            "All"
+          ],
+          "value": [
+            "$__all"
+          ]
+        }
+      },
+      {
+        "type": "query",
+        "name": "app",
+        "label": "App",
+        "datasource": {
+          "type": "loki",
+          "uid": "${loki}"
+        },
+        "definition": "label_values({namespace=~\"$namespace\"}, app)",
+        "query": {
+          "type": 1,
+          "label": "app",
+          "stream": "{namespace=~\"$namespace\"}",
+          "refId": "LokiVariableQueryEditor-VariableQuery"
+        },
+        "refresh": 2,
+        "sort": 1,
+        "hide": 0,
+        "regex": "",
+        "multi": true,
+        "includeAll": true,
+        "allValue": ".*",
+        "options": [],
+        "current": {
+          "selected": true,
+          "text": [
+            "All"
+          ],
+          "value": [
+            "$__all"
+          ]
+        }
+      }
+    ]
+  },
+  "annotations": {
+    "list": [
+      {
+        "builtIn": 1,
+        "datasource": {
+          "type": "grafana",
+          "uid": "-- Grafana --"
+        },
+        "enable": true,
+        "hide": true,
+        "iconColor": "rgba(0, 211, 255, 1)",
+        "name": "Annotations & Alerts",
+        "type": "dashboard"
+      }
+    ]
+  },
+  "links": [],
+  "panels": [
+    {
+      "type": "row",
+      "title": "Volume",
+      "id": 1,
+      "collapsed": false,
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 0
+      },
+      "panels": []
+    },
+    {
+      "type": "stat",
+      "title": "Log volume (time range)",
+      "description": "",
+      "datasource": {
+        "type": "loki",
+        "uid": "${loki}"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum(bytes_over_time({namespace=~\"$namespace\", app=~\"$app\"}[$__range]))",
+          "legendFormat": "",
+          "queryType": "instant",
+          "datasource": {
+            "type": "loki",
+            "uid": "${loki}"
+          }
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "bytes",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "text",
+                "value": null
+              }
+            ]
+          },
+          "color": {
+            "mode": "thresholds"
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "colorMode": "value",
+        "graphMode": "none",
+        "justifyMode": "auto",
+        "textMode": "auto",
+        "orientation": "auto"
+      },
+      "id": 2,
+      "gridPos": {
+        "h": 4,
+        "w": 6,
+        "x": 0,
+        "y": 1
+      }
+    },
+    {
+      "type": "stat",
+      "title": "Log lines (time range)",
+      "description": "",
+      "datasource": {
+        "type": "loki",
+        "uid": "${loki}"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum(count_over_time({namespace=~\"$namespace\", app=~\"$app\"}[$__range]))",
+          "legendFormat": "",
+          "queryType": "instant",
+          "datasource": {
+            "type": "loki",
+            "uid": "${loki}"
+          }
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "text",
+                "value": null
+              }
+            ]
+          },
+          "color": {
+            "mode": "thresholds"
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "colorMode": "value",
+        "graphMode": "none",
+        "justifyMode": "auto",
+        "textMode": "auto",
+        "orientation": "auto"
+      },
+      "id": 3,
+      "gridPos": {
+        "h": 4,
+        "w": 6,
+        "x": 6,
+        "y": 1
+      }
+    },
+    {
+      "type": "stat",
+      "title": "Error lines (time range)",
+      "description": "",
+      "datasource": {
+        "type": "loki",
+        "uid": "${loki}"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum(count_over_time({namespace=~\"$namespace\", app=~\"$app\"} |~ `(?i)\\b(error|exception|fatal|panic)\\b` [$__range]))",
+          "legendFormat": "",
+          "queryType": "instant",
+          "datasource": {
+            "type": "loki",
+            "uid": "${loki}"
+          }
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "text",
+                "value": null
+              }
+            ]
+          },
+          "color": {
+            "mode": "thresholds"
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "colorMode": "value",
+        "graphMode": "none",
+        "justifyMode": "auto",
+        "textMode": "auto",
+        "orientation": "auto"
+      },
+      "id": 4,
+      "gridPos": {
+        "h": 4,
+        "w": 6,
+        "x": 12,
+        "y": 1
+      }
+    },
+    {
+      "type": "stat",
+      "title": "Error line ratio",
+      "description": "",
+      "datasource": {
+        "type": "loki",
+        "uid": "${loki}"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum(count_over_time({namespace=~\"$namespace\", app=~\"$app\"} |~ `(?i)\\b(error|exception|fatal|panic)\\b` [$__range])) / sum(count_over_time({namespace=~\"$namespace\", app=~\"$app\"}[$__range]))",
+          "legendFormat": "",
+          "queryType": "instant",
+          "datasource": {
+            "type": "loki",
+            "uid": "${loki}"
+          }
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percentunit",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "orange",
+                "value": 0.01
+              },
+              {
+                "color": "red",
+                "value": 0.05
+              }
+            ]
+          },
+          "color": {
+            "mode": "thresholds"
+          },
+          "decimals": 2
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "colorMode": "value",
+        "graphMode": "none",
+        "justifyMode": "auto",
+        "textMode": "auto",
+        "orientation": "auto"
+      },
+      "id": 5,
+      "gridPos": {
+        "h": 4,
+        "w": 6,
+        "x": 18,
+        "y": 1
+      }
+    },
+    {
+      "type": "timeseries",
+      "title": "Ingest rate by namespace",
+      "description": "Sudden steps usually mean a debug log level left on or a crash loop printing stack traces.",
+      "datasource": {
+        "type": "loki",
+        "uid": "${loki}"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum by (namespace) (bytes_rate({namespace=~\"$namespace\", app=~\"$app\"}[$__auto]))",
+          "legendFormat": "{{namespace}}",
+          "queryType": "range",
+          "datasource": {
+            "type": "loki",
+            "uid": "${loki}"
+          }
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "Bps",
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 1,
+            "fillOpacity": 10,
+            "showPoints": "never",
+            "spanNulls": false,
+            "stacking": {
+              "mode": "normal",
+              "group": "A"
+            }
+          },
+          "color": {
+            "mode": "palette-classic"
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "right",
+          "calcs": [
+            "mean",
+            "max",
+            "lastNotNull"
+          ],
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "id": 6,
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 5
+      }
+    },
+    {
+      "type": "timeseries",
+      "title": "Error lines per second by app",
+      "description": "Lines matching error|exception|fatal|panic (case-insensitive, whole word).",
+      "datasource": {
+        "type": "loki",
+        "uid": "${loki}"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum by (namespace, app) (rate({namespace=~\"$namespace\", app=~\"$app\"} |~ `(?i)\\b(error|exception|fatal|panic)\\b` [$__auto]))",
+          "legendFormat": "{{namespace}}/{{app}}",
+          "queryType": "range",
+          "datasource": {
+            "type": "loki",
+            "uid": "${loki}"
+          }
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 1,
+            "fillOpacity": 10,
+            "showPoints": "never",
+            "spanNulls": false,
+            "stacking": {
+              "mode": "normal",
+              "group": "A"
+            }
+          },
+          "color": {
+            "mode": "palette-classic"
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "right",
+          "calcs": [
+            "mean",
+            "max",
+            "lastNotNull"
+          ],
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "id": 7,
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 5
+      }
+    },
+    {
+      "type": "bargauge",
+      "title": "Top 10 apps by volume",
+      "description": "",
+      "datasource": {
+        "type": "loki",
+        "uid": "${loki}"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "topk(10, sum by (namespace, app) (bytes_over_time({namespace=~\"$namespace\", app=~\"$app\"}[$__range])))",
+          "legendFormat": "{{namespace}}/{{app}}",
+          "queryType": "instant",
+          "datasource": {
+            "type": "loki",
+            "uid": "${loki}"
+          }
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "bytes",
+          "color": {
+            "mode": "continuous-BlYlRd"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "orientation": "horizontal",
+        "displayMode": "gradient",
+        "showUnfilled": true,
+        "valueMode": "color",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "minVizHeight": 16,
+        "maxVizHeight": 24,
+        "sizing": "manual"
+      },
+      "id": 8,
+      "gridPos": {
+        "h": 9,
+        "w": 12,
+        "x": 0,
+        "y": 13
+      }
+    },
+    {
+      "type": "bargauge",
+      "title": "Top 10 apps by error lines",
+      "description": "",
+      "datasource": {
+        "type": "loki",
+        "uid": "${loki}"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "topk(10, sum by (namespace, app) (count_over_time({namespace=~\"$namespace\", app=~\"$app\"} |~ `(?i)\\b(error|exception|fatal|panic)\\b` [$__range])))",
+          "legendFormat": "{{namespace}}/{{app}}",
+          "queryType": "instant",
+          "datasource": {
+            "type": "loki",
+            "uid": "${loki}"
+          }
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "color": {
+            "mode": "continuous-BlYlRd"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "orientation": "horizontal",
+        "displayMode": "gradient",
+        "showUnfilled": true,
+        "valueMode": "color",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "minVizHeight": 16,
+        "maxVizHeight": 24,
+        "sizing": "manual"
+      },
+      "id": 9,
+      "gridPos": {
+        "h": 9,
+        "w": 12,
+        "x": 12,
+        "y": 13
+      }
+    },
+    {
+      "type": "logs",
+      "title": "Recent error lines",
+      "datasource": {
+        "type": "loki",
+        "uid": "${loki}"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "{namespace=~\"$namespace\", app=~\"$app\"} |~ `(?i)\\b(error|exception|fatal|panic)\\b`",
+          "legendFormat": "",
+          "queryType": "range",
+          "datasource": {
+            "type": "loki",
+            "uid": "${loki}"
+          }
+        }
+      ],
+      "options": {
+        "showTime": true,
+        "wrapLogMessage": true,
+        "sortOrder": "Descending",
+        "enableLogDetails": true,
+        "dedupStrategy": "none",
+        "prettifyLogMessage": false,
+        "showLabels": false,
+        "showCommonLabels": false
+      },
+      "id": 10,
+      "gridPos": {
+        "h": 12,
+        "w": 24,
+        "x": 0,
+        "y": 22
+      }
+    },
+    {
+      "type": "row",
+      "title": "Loki ingestion health",
+      "id": 11,
+      "collapsed": false,
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 34
+      },
+      "panels": []
+    },
+    {
+      "type": "timeseries",
+      "title": "Bytes received by distributors",
+      "description": "",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${metrics}"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum(rate(loki_distributor_bytes_received_total[$__rate_interval]))",
+          "legendFormat": "received",
+          "range": true,
+          "instant": false,
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${metrics}"
+          }
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "Bps",
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 1,
+            "fillOpacity": 10,
+            "showPoints": "never",
+            "spanNulls": false,
+            "stacking": {
+              "mode": "none",
+              "group": "A"
+            }
+          },
+          "color": {
+            "mode": "palette-classic"
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "right",
+          "calcs": [
+            "mean",
+            "max",
+            "lastNotNull"
+          ],
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "id": 12,
+      "gridPos": {
+        "h": 8,
+        "w": 8,
+        "x": 0,
+        "y": 35
+      }
+    },
+    {
+      "type": "timeseries",
+      "title": "Discarded samples by reason",
+      "description": "Anything here is data loss: rate_limited / per_stream_rate_limit => raise limits or reduce volume; stream_limit => label cardinality problem.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${metrics}"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum by (reason) (rate(loki_discarded_samples_total[$__rate_interval]))",
+          "legendFormat": "{{reason}}",
+          "range": true,
+          "instant": false,
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${metrics}"
+          }
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 1,
+            "fillOpacity": 10,
+            "showPoints": "never",
+            "spanNulls": false,
+            "stacking": {
+              "mode": "none",
+              "group": "A"
+            }
+          },
+          "color": {
+            "mode": "palette-classic"
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "right",
+          "calcs": [
+            "mean",
+            "max",
+            "lastNotNull"
+          ],
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "id": 13,
+      "gridPos": {
+        "h": 8,
+        "w": 8,
+        "x": 8,
+        "y": 35
+      }
+    },
+    {
+      "type": "timeseries",
+      "title": "Active streams (ingesters)",
+      "description": "Grows with label cardinality. A jump after a deploy usually means a new high-cardinality label.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${metrics}"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum(loki_ingester_memory_streams)",
+          "legendFormat": "streams",
+          "range": true,
+          "instant": false,
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${metrics}"
+          }
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 1,
+            "fillOpacity": 10,
+            "showPoints": "never",
+            "spanNulls": false,
+            "stacking": {
+              "mode": "none",
+              "group": "A"
+            }
+          },
+          "color": {
+            "mode": "palette-classic"
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "right",
+          "calcs": [
+            "mean",
+            "max",
+            "lastNotNull"
+          ],
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "id": 14,
+      "gridPos": {
+        "h": 8,
+        "w": 8,
+        "x": 16,
+        "y": 35
+      }
+    }
+  ]
+}

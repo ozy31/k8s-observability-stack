@@ -1,0 +1,1375 @@
+{
+  "uid": "k8s-cluster-cost",
+  "title": "Kubernetes / Cluster Overview & Cost",
+  "description": "Capacity, requests vs usage per namespace, and an estimated cost split driven by a node price variable.",
+  "tags": [
+    "kubernetes",
+    "cost",
+    "capacity"
+  ],
+  "timezone": "browser",
+  "editable": false,
+  "graphTooltip": 1,
+  "schemaVersion": 39,
+  "version": 1,
+  "refresh": "1m",
+  "time": {
+    "from": "now-24h",
+    "to": "now"
+  },
+  "fiscalYearStartMonth": 0,
+  "liveNow": false,
+  "weekStart": "",
+  "templating": {
+    "list": [
+      {
+        "type": "datasource",
+        "name": "datasource",
+        "label": "Metrics",
+        "query": "prometheus",
+        "hide": 0,
+        "refresh": 1,
+        "regex": "",
+        "current": {
+          "selected": false,
+          "text": "VictoriaMetrics",
+          "value": "victoriametrics"
+        },
+        "options": [],
+        "includeAll": false,
+        "multi": false
+      },
+      {
+        "type": "query",
+        "name": "cluster",
+        "label": "Cluster",
+        "datasource": {
+          "type": "prometheus",
+          "uid": "${datasource}"
+        },
+        "definition": "label_values(kube_node_info, cluster)",
+        "query": {
+          "query": "label_values(kube_node_info, cluster)",
+          "refId": "Var-cluster"
+        },
+        "refresh": 2,
+        "sort": 1,
+        "hide": 0,
+        "regex": "",
+        "multi": true,
+        "includeAll": true,
+        "options": [],
+        "current": {
+          "selected": true,
+          "text": [
+            "All"
+          ],
+          "value": [
+            "$__all"
+          ]
+        },
+        "allValue": ".*"
+      },
+      {
+        "type": "query",
+        "name": "namespace",
+        "label": "Namespace",
+        "datasource": {
+          "type": "prometheus",
+          "uid": "${datasource}"
+        },
+        "definition": "label_values(kube_namespace_status_phase{cluster=~\"$cluster\"}, namespace)",
+        "query": {
+          "query": "label_values(kube_namespace_status_phase{cluster=~\"$cluster\"}, namespace)",
+          "refId": "Var-namespace"
+        },
+        "refresh": 2,
+        "sort": 1,
+        "hide": 0,
+        "regex": "",
+        "multi": true,
+        "includeAll": true,
+        "options": [],
+        "current": {
+          "selected": true,
+          "text": [
+            "All"
+          ],
+          "value": [
+            "$__all"
+          ]
+        },
+        "allValue": ".+"
+      },
+      {
+        "type": "textbox",
+        "name": "node_hourly_price",
+        "label": "Node $/h",
+        "description": "Hourly price of a typical node (example: m6i.xlarge on-demand, eu-central-1-ish). Use your blended price.",
+        "hide": 0,
+        "query": "0.192",
+        "current": {
+          "selected": false,
+          "text": "0.192",
+          "value": "0.192"
+        },
+        "options": [
+          {
+            "selected": true,
+            "text": "0.192",
+            "value": "0.192"
+          }
+        ]
+      },
+      {
+        "type": "textbox",
+        "name": "node_vcpu",
+        "label": "Node vCPU",
+        "description": "vCPUs of the reference node",
+        "hide": 0,
+        "query": "4",
+        "current": {
+          "selected": false,
+          "text": "4",
+          "value": "4"
+        },
+        "options": [
+          {
+            "selected": true,
+            "text": "4",
+            "value": "4"
+          }
+        ]
+      },
+      {
+        "type": "textbox",
+        "name": "node_memory_gib",
+        "label": "Node GiB",
+        "description": "Memory (GiB) of the reference node",
+        "hide": 0,
+        "query": "16",
+        "current": {
+          "selected": false,
+          "text": "16",
+          "value": "16"
+        },
+        "options": [
+          {
+            "selected": true,
+            "text": "16",
+            "value": "16"
+          }
+        ]
+      }
+    ]
+  },
+  "annotations": {
+    "list": [
+      {
+        "builtIn": 1,
+        "datasource": {
+          "type": "grafana",
+          "uid": "-- Grafana --"
+        },
+        "enable": true,
+        "hide": true,
+        "iconColor": "rgba(0, 211, 255, 1)",
+        "name": "Annotations & Alerts",
+        "type": "dashboard"
+      }
+    ]
+  },
+  "links": [],
+  "panels": [
+    {
+      "type": "row",
+      "title": "Cluster capacity",
+      "id": 1,
+      "collapsed": false,
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 0
+      },
+      "panels": []
+    },
+    {
+      "type": "stat",
+      "title": "Nodes",
+      "description": "",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${datasource}"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "count(kube_node_info{cluster=~\"$cluster\"})",
+          "legendFormat": "__auto",
+          "range": false,
+          "instant": true
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "none",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "text",
+                "value": null
+              }
+            ]
+          },
+          "color": {
+            "mode": "thresholds"
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "colorMode": "value",
+        "graphMode": "none",
+        "justifyMode": "auto",
+        "textMode": "auto",
+        "orientation": "auto"
+      },
+      "id": 2,
+      "gridPos": {
+        "h": 4,
+        "w": 3,
+        "x": 0,
+        "y": 1
+      }
+    },
+    {
+      "type": "stat",
+      "title": "CPU requested / allocatable",
+      "description": "Share of the cluster's allocatable capacity. Requested is what the scheduler reserves; used is what workloads actually consume.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${datasource}"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum(kube_pod_container_resource_requests{resource=\"cpu\", cluster=~\"$cluster\"} * on (cluster, namespace, pod) group_left () max by (cluster, namespace, pod) (kube_pod_status_phase{phase=~\"Running|Pending\", cluster=~\"$cluster\"} == 1)) / sum(kube_node_status_allocatable{resource=\"cpu\", cluster=~\"$cluster\"})",
+          "legendFormat": "__auto",
+          "range": false,
+          "instant": true
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percentunit",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "orange",
+                "value": 0.8
+              },
+              {
+                "color": "red",
+                "value": 0.95
+              }
+            ]
+          },
+          "color": {
+            "mode": "thresholds"
+          },
+          "decimals": 1
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "colorMode": "value",
+        "graphMode": "none",
+        "justifyMode": "auto",
+        "textMode": "auto",
+        "orientation": "auto"
+      },
+      "id": 3,
+      "gridPos": {
+        "h": 4,
+        "w": 4,
+        "x": 3,
+        "y": 1
+      }
+    },
+    {
+      "type": "stat",
+      "title": "CPU used / allocatable",
+      "description": "Share of the cluster's allocatable capacity. Requested is what the scheduler reserves; used is what workloads actually consume.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${datasource}"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum(rate(container_cpu_usage_seconds_total{container!=\"\", image!=\"\", cluster=~\"$cluster\"}[$__rate_interval])) / sum(kube_node_status_allocatable{resource=\"cpu\", cluster=~\"$cluster\"})",
+          "legendFormat": "__auto",
+          "range": false,
+          "instant": true
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percentunit",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "orange",
+                "value": 0.8
+              },
+              {
+                "color": "red",
+                "value": 0.95
+              }
+            ]
+          },
+          "color": {
+            "mode": "thresholds"
+          },
+          "decimals": 1
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "colorMode": "value",
+        "graphMode": "none",
+        "justifyMode": "auto",
+        "textMode": "auto",
+        "orientation": "auto"
+      },
+      "id": 4,
+      "gridPos": {
+        "h": 4,
+        "w": 4,
+        "x": 7,
+        "y": 1
+      }
+    },
+    {
+      "type": "stat",
+      "title": "Memory requested / allocatable",
+      "description": "Share of the cluster's allocatable capacity. Requested is what the scheduler reserves; used is what workloads actually consume.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${datasource}"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum(kube_pod_container_resource_requests{resource=\"memory\", cluster=~\"$cluster\"} * on (cluster, namespace, pod) group_left () max by (cluster, namespace, pod) (kube_pod_status_phase{phase=~\"Running|Pending\", cluster=~\"$cluster\"} == 1)) / sum(kube_node_status_allocatable{resource=\"memory\", cluster=~\"$cluster\"})",
+          "legendFormat": "__auto",
+          "range": false,
+          "instant": true
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percentunit",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "orange",
+                "value": 0.8
+              },
+              {
+                "color": "red",
+                "value": 0.95
+              }
+            ]
+          },
+          "color": {
+            "mode": "thresholds"
+          },
+          "decimals": 1
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "colorMode": "value",
+        "graphMode": "none",
+        "justifyMode": "auto",
+        "textMode": "auto",
+        "orientation": "auto"
+      },
+      "id": 5,
+      "gridPos": {
+        "h": 4,
+        "w": 4,
+        "x": 11,
+        "y": 1
+      }
+    },
+    {
+      "type": "stat",
+      "title": "Memory used / allocatable",
+      "description": "Share of the cluster's allocatable capacity. Requested is what the scheduler reserves; used is what workloads actually consume.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${datasource}"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum(container_memory_working_set_bytes{container!=\"\", image!=\"\", cluster=~\"$cluster\"}) / sum(kube_node_status_allocatable{resource=\"memory\", cluster=~\"$cluster\"})",
+          "legendFormat": "__auto",
+          "range": false,
+          "instant": true
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percentunit",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "orange",
+                "value": 0.8
+              },
+              {
+                "color": "red",
+                "value": 0.95
+              }
+            ]
+          },
+          "color": {
+            "mode": "thresholds"
+          },
+          "decimals": 1
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "colorMode": "value",
+        "graphMode": "none",
+        "justifyMode": "auto",
+        "textMode": "auto",
+        "orientation": "auto"
+      },
+      "id": 6,
+      "gridPos": {
+        "h": 4,
+        "w": 4,
+        "x": 15,
+        "y": 1
+      }
+    },
+    {
+      "type": "stat",
+      "title": "Est. cluster cost / month",
+      "description": "node count × $node_hourly_price × 730h. Edit the variables at the top to match your instance pricing (on-demand, savings plan or spot blend).",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${datasource}"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "730 * $node_hourly_price * count(kube_node_info{cluster=~\"$cluster\"})",
+          "legendFormat": "__auto",
+          "range": false,
+          "instant": true
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "currencyUSD",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "text",
+                "value": null
+              }
+            ]
+          },
+          "color": {
+            "mode": "thresholds"
+          },
+          "decimals": 0
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "colorMode": "value",
+        "graphMode": "none",
+        "justifyMode": "auto",
+        "textMode": "auto",
+        "orientation": "auto"
+      },
+      "id": 7,
+      "gridPos": {
+        "h": 4,
+        "w": 5,
+        "x": 19,
+        "y": 1
+      }
+    },
+    {
+      "type": "timeseries",
+      "title": "CPU: allocatable vs requested vs used",
+      "description": "The gap between requested and used is capacity you pay for but do not use (over-requesting). The gap between allocatable and requested is unscheduled headroom.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${datasource}"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum(kube_node_status_allocatable{resource=\"cpu\", cluster=~\"$cluster\"})",
+          "legendFormat": "allocatable",
+          "range": true,
+          "instant": false
+        },
+        {
+          "refId": "B",
+          "expr": "sum(kube_pod_container_resource_requests{resource=\"cpu\", cluster=~\"$cluster\"} * on (cluster, namespace, pod) group_left () max by (cluster, namespace, pod) (kube_pod_status_phase{phase=~\"Running|Pending\", cluster=~\"$cluster\"} == 1))",
+          "legendFormat": "requested",
+          "range": true,
+          "instant": false
+        },
+        {
+          "refId": "C",
+          "expr": "sum(rate(container_cpu_usage_seconds_total{container!=\"\", image!=\"\", cluster=~\"$cluster\"}[$__rate_interval]))",
+          "legendFormat": "used",
+          "range": true,
+          "instant": false
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 1,
+            "fillOpacity": 0,
+            "showPoints": "never",
+            "spanNulls": false,
+            "stacking": {
+              "mode": "none",
+              "group": "A"
+            }
+          },
+          "color": {
+            "mode": "palette-classic"
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "right",
+          "calcs": [
+            "mean",
+            "max",
+            "lastNotNull"
+          ],
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "id": 8,
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 5
+      }
+    },
+    {
+      "type": "timeseries",
+      "title": "Memory: allocatable vs requested vs used",
+      "description": "",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${datasource}"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum(kube_node_status_allocatable{resource=\"memory\", cluster=~\"$cluster\"})",
+          "legendFormat": "allocatable",
+          "range": true,
+          "instant": false
+        },
+        {
+          "refId": "B",
+          "expr": "sum(kube_pod_container_resource_requests{resource=\"memory\", cluster=~\"$cluster\"} * on (cluster, namespace, pod) group_left () max by (cluster, namespace, pod) (kube_pod_status_phase{phase=~\"Running|Pending\", cluster=~\"$cluster\"} == 1))",
+          "legendFormat": "requested",
+          "range": true,
+          "instant": false
+        },
+        {
+          "refId": "C",
+          "expr": "sum(container_memory_working_set_bytes{container!=\"\", image!=\"\", cluster=~\"$cluster\"})",
+          "legendFormat": "used (working set)",
+          "range": true,
+          "instant": false
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "bytes",
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 1,
+            "fillOpacity": 0,
+            "showPoints": "never",
+            "spanNulls": false,
+            "stacking": {
+              "mode": "none",
+              "group": "A"
+            }
+          },
+          "color": {
+            "mode": "palette-classic"
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "right",
+          "calcs": [
+            "mean",
+            "max",
+            "lastNotNull"
+          ],
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "id": 9,
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 5
+      }
+    },
+    {
+      "type": "row",
+      "title": "Requests vs usage per namespace",
+      "id": 10,
+      "collapsed": false,
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 13
+      },
+      "panels": []
+    },
+    {
+      "type": "table",
+      "title": "Namespace efficiency and estimated cost",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${datasource}"
+      },
+      "description": "Efficiency = usage / requests. Below ~50% usually means requests can be lowered. Cost allocates each node's price 50/50 between CPU and memory and charges a namespace for max(requested, used) — a deliberate simplification of tools like OpenCost; use it to rank, not to invoice.",
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum by (namespace) (kube_pod_container_resource_requests{resource=\"cpu\", cluster=~\"$cluster\", namespace=~\"$namespace\"} * on (cluster, namespace, pod) group_left () max by (cluster, namespace, pod) (kube_pod_status_phase{phase=~\"Running|Pending\", cluster=~\"$cluster\"} == 1))",
+          "legendFormat": "__auto",
+          "range": false,
+          "instant": true,
+          "format": "table"
+        },
+        {
+          "refId": "B",
+          "expr": "sum by (namespace) (rate(container_cpu_usage_seconds_total{container!=\"\", image!=\"\", cluster=~\"$cluster\", namespace=~\"$namespace\"}[$__rate_interval]))",
+          "legendFormat": "__auto",
+          "range": false,
+          "instant": true,
+          "format": "table"
+        },
+        {
+          "refId": "C",
+          "expr": "sum by (namespace) (kube_pod_container_resource_requests{resource=\"memory\", cluster=~\"$cluster\", namespace=~\"$namespace\"} * on (cluster, namespace, pod) group_left () max by (cluster, namespace, pod) (kube_pod_status_phase{phase=~\"Running|Pending\", cluster=~\"$cluster\"} == 1))",
+          "legendFormat": "__auto",
+          "range": false,
+          "instant": true,
+          "format": "table"
+        },
+        {
+          "refId": "D",
+          "expr": "sum by (namespace) (container_memory_working_set_bytes{container!=\"\", image!=\"\", cluster=~\"$cluster\", namespace=~\"$namespace\"})",
+          "legendFormat": "__auto",
+          "range": false,
+          "instant": true,
+          "format": "table"
+        },
+        {
+          "refId": "E",
+          "expr": "730 * $node_hourly_price * (0.5 * (((sum by (namespace) (kube_pod_container_resource_requests{resource=\"cpu\", cluster=~\"$cluster\", namespace=~\"$namespace\"} * on (cluster, namespace, pod) group_left () max by (cluster, namespace, pod) (kube_pod_status_phase{phase=~\"Running|Pending\", cluster=~\"$cluster\"} == 1))) >= (sum by (namespace) (rate(container_cpu_usage_seconds_total{container!=\"\", image!=\"\", cluster=~\"$cluster\", namespace=~\"$namespace\"}[$__rate_interval])))) or (sum by (namespace) (rate(container_cpu_usage_seconds_total{container!=\"\", image!=\"\", cluster=~\"$cluster\", namespace=~\"$namespace\"}[$__rate_interval])))) / $node_vcpu + 0.5 * (((sum by (namespace) (kube_pod_container_resource_requests{resource=\"memory\", cluster=~\"$cluster\", namespace=~\"$namespace\"} * on (cluster, namespace, pod) group_left () max by (cluster, namespace, pod) (kube_pod_status_phase{phase=~\"Running|Pending\", cluster=~\"$cluster\"} == 1))) >= (sum by (namespace) (container_memory_working_set_bytes{container!=\"\", image!=\"\", cluster=~\"$cluster\", namespace=~\"$namespace\"}))) or (sum by (namespace) (container_memory_working_set_bytes{container!=\"\", image!=\"\", cluster=~\"$cluster\", namespace=~\"$namespace\"}))) / ($node_memory_gib * 1024 * 1024 * 1024))",
+          "legendFormat": "__auto",
+          "range": false,
+          "instant": true,
+          "format": "table"
+        }
+      ],
+      "transformations": [
+        {
+          "id": "merge",
+          "options": {}
+        },
+        {
+          "id": "organize",
+          "options": {
+            "excludeByName": {
+              "Time": true
+            },
+            "renameByName": {
+              "namespace": "Namespace",
+              "Value #A": "CPU requested",
+              "Value #B": "CPU used",
+              "Value #C": "Memory requested",
+              "Value #D": "Memory used",
+              "Value #E": "Est. $ / month"
+            },
+            "indexByName": {
+              "namespace": 0,
+              "Value #A": 1,
+              "Value #B": 2,
+              "Value #C": 3,
+              "Value #D": 4,
+              "Value #E": 5
+            }
+          }
+        },
+        {
+          "id": "calculateField",
+          "options": {
+            "mode": "binary",
+            "alias": "CPU efficiency",
+            "binary": {
+              "left": "CPU used",
+              "operator": "/",
+              "right": "CPU requested"
+            },
+            "replaceFields": false
+          }
+        },
+        {
+          "id": "calculateField",
+          "options": {
+            "mode": "binary",
+            "alias": "Memory efficiency",
+            "binary": {
+              "left": "Memory used",
+              "operator": "/",
+              "right": "Memory requested"
+            },
+            "replaceFields": false
+          }
+        },
+        {
+          "id": "sortBy",
+          "options": {
+            "sort": [
+              {
+                "field": "Est. $ / month",
+                "desc": true
+              }
+            ]
+          }
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "align": "auto",
+            "cellOptions": {
+              "type": "auto"
+            }
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "text",
+                "value": null
+              }
+            ]
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byRegexp",
+              "options": "CPU (requested|used)"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "short"
+              },
+              {
+                "id": "decimals",
+                "value": 2
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byRegexp",
+              "options": "Memory (requested|used)"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "bytes"
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Est. $ / month"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "currencyUSD"
+              },
+              {
+                "id": "decimals",
+                "value": 0
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byRegexp",
+              "options": ".* efficiency"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "percentunit"
+              },
+              {
+                "id": "decimals",
+                "value": 0
+              },
+              {
+                "id": "custom.cellOptions",
+                "value": {
+                  "type": "color-background",
+                  "mode": "basic"
+                }
+              },
+              {
+                "id": "thresholds",
+                "value": {
+                  "mode": "absolute",
+                  "steps": [
+                    {
+                      "color": "red",
+                      "value": null
+                    },
+                    {
+                      "color": "orange",
+                      "value": 0.3
+                    },
+                    {
+                      "color": "green",
+                      "value": 0.6
+                    },
+                    {
+                      "color": "blue",
+                      "value": 1.1
+                    }
+                  ]
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "showHeader": true,
+        "cellHeight": "sm",
+        "footer": {
+          "show": true,
+          "reducer": [
+            "sum"
+          ],
+          "fields": [
+            "Est. $ / month"
+          ]
+        }
+      },
+      "id": 11,
+      "gridPos": {
+        "h": 10,
+        "w": 24,
+        "x": 0,
+        "y": 14
+      }
+    },
+    {
+      "type": "timeseries",
+      "title": "CPU used by namespace",
+      "description": "",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${datasource}"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum by (namespace) (rate(container_cpu_usage_seconds_total{container!=\"\", image!=\"\", cluster=~\"$cluster\", namespace=~\"$namespace\"}[$__rate_interval]))",
+          "legendFormat": "{{namespace}}",
+          "range": true,
+          "instant": false
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 1,
+            "fillOpacity": 10,
+            "showPoints": "never",
+            "spanNulls": false,
+            "stacking": {
+              "mode": "normal",
+              "group": "A"
+            }
+          },
+          "color": {
+            "mode": "palette-classic"
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "right",
+          "calcs": [
+            "mean",
+            "max",
+            "lastNotNull"
+          ],
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "id": 12,
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 24
+      }
+    },
+    {
+      "type": "timeseries",
+      "title": "Memory used by namespace",
+      "description": "",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${datasource}"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum by (namespace) (container_memory_working_set_bytes{container!=\"\", image!=\"\", cluster=~\"$cluster\", namespace=~\"$namespace\"})",
+          "legendFormat": "{{namespace}}",
+          "range": true,
+          "instant": false
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "bytes",
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 1,
+            "fillOpacity": 10,
+            "showPoints": "never",
+            "spanNulls": false,
+            "stacking": {
+              "mode": "normal",
+              "group": "A"
+            }
+          },
+          "color": {
+            "mode": "palette-classic"
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "right",
+          "calcs": [
+            "mean",
+            "max",
+            "lastNotNull"
+          ],
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "id": 13,
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 24
+      }
+    },
+    {
+      "type": "timeseries",
+      "title": "CPU over-request (requested − used) by namespace",
+      "description": "Cores reserved by the scheduler but not used. This is the main lever for cost reduction.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${datasource}"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum by (namespace) (kube_pod_container_resource_requests{resource=\"cpu\", cluster=~\"$cluster\", namespace=~\"$namespace\"} * on (cluster, namespace, pod) group_left () max by (cluster, namespace, pod) (kube_pod_status_phase{phase=~\"Running|Pending\", cluster=~\"$cluster\"} == 1)) - sum by (namespace) (rate(container_cpu_usage_seconds_total{container!=\"\", image!=\"\", cluster=~\"$cluster\", namespace=~\"$namespace\"}[$__rate_interval])) > 0",
+          "legendFormat": "{{namespace}}",
+          "range": true,
+          "instant": false
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 1,
+            "fillOpacity": 10,
+            "showPoints": "never",
+            "spanNulls": false,
+            "stacking": {
+              "mode": "normal",
+              "group": "A"
+            }
+          },
+          "color": {
+            "mode": "palette-classic"
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "right",
+          "calcs": [
+            "mean",
+            "max",
+            "lastNotNull"
+          ],
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "id": 14,
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 32
+      }
+    },
+    {
+      "type": "timeseries",
+      "title": "Memory over-request (requested − used) by namespace",
+      "description": "",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${datasource}"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum by (namespace) (kube_pod_container_resource_requests{resource=\"memory\", cluster=~\"$cluster\", namespace=~\"$namespace\"} * on (cluster, namespace, pod) group_left () max by (cluster, namespace, pod) (kube_pod_status_phase{phase=~\"Running|Pending\", cluster=~\"$cluster\"} == 1)) - sum by (namespace) (container_memory_working_set_bytes{container!=\"\", image!=\"\", cluster=~\"$cluster\", namespace=~\"$namespace\"}) > 0",
+          "legendFormat": "{{namespace}}",
+          "range": true,
+          "instant": false
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "bytes",
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 1,
+            "fillOpacity": 10,
+            "showPoints": "never",
+            "spanNulls": false,
+            "stacking": {
+              "mode": "normal",
+              "group": "A"
+            }
+          },
+          "color": {
+            "mode": "palette-classic"
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "right",
+          "calcs": [
+            "mean",
+            "max",
+            "lastNotNull"
+          ],
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "id": 15,
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 32
+      }
+    },
+    {
+      "type": "row",
+      "title": "Cost",
+      "id": 16,
+      "collapsed": false,
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 40
+      },
+      "panels": []
+    },
+    {
+      "type": "bargauge",
+      "title": "Est. monthly cost by namespace (top 15)",
+      "description": "",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${datasource}"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "topk(15, 730 * $node_hourly_price * (0.5 * (((sum by (namespace) (kube_pod_container_resource_requests{resource=\"cpu\", cluster=~\"$cluster\", namespace=~\"$namespace\"} * on (cluster, namespace, pod) group_left () max by (cluster, namespace, pod) (kube_pod_status_phase{phase=~\"Running|Pending\", cluster=~\"$cluster\"} == 1))) >= (sum by (namespace) (rate(container_cpu_usage_seconds_total{container!=\"\", image!=\"\", cluster=~\"$cluster\", namespace=~\"$namespace\"}[$__rate_interval])))) or (sum by (namespace) (rate(container_cpu_usage_seconds_total{container!=\"\", image!=\"\", cluster=~\"$cluster\", namespace=~\"$namespace\"}[$__rate_interval])))) / $node_vcpu + 0.5 * (((sum by (namespace) (kube_pod_container_resource_requests{resource=\"memory\", cluster=~\"$cluster\", namespace=~\"$namespace\"} * on (cluster, namespace, pod) group_left () max by (cluster, namespace, pod) (kube_pod_status_phase{phase=~\"Running|Pending\", cluster=~\"$cluster\"} == 1))) >= (sum by (namespace) (container_memory_working_set_bytes{container!=\"\", image!=\"\", cluster=~\"$cluster\", namespace=~\"$namespace\"}))) or (sum by (namespace) (container_memory_working_set_bytes{container!=\"\", image!=\"\", cluster=~\"$cluster\", namespace=~\"$namespace\"}))) / ($node_memory_gib * 1024 * 1024 * 1024)))",
+          "legendFormat": "{{namespace}}",
+          "range": false,
+          "instant": true
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "currencyUSD",
+          "color": {
+            "mode": "continuous-BlYlRd"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "orientation": "horizontal",
+        "displayMode": "gradient",
+        "showUnfilled": true,
+        "valueMode": "color",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "minVizHeight": 16,
+        "maxVizHeight": 24,
+        "sizing": "manual"
+      },
+      "id": 17,
+      "gridPos": {
+        "h": 10,
+        "w": 12,
+        "x": 0,
+        "y": 41
+      }
+    },
+    {
+      "type": "timeseries",
+      "title": "Allocated vs idle cost (monthly run-rate)",
+      "description": "Idle = what the nodes cost minus what namespaces requested/used. Persistently high idle cost points at bin-packing (Karpenter consolidation, smaller instance types) rather than at workloads.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${datasource}"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "730 * $node_hourly_price * (0.5 * sum(((sum by (namespace) (kube_pod_container_resource_requests{resource=\"cpu\", cluster=~\"$cluster\"} * on (cluster, namespace, pod) group_left () max by (cluster, namespace, pod) (kube_pod_status_phase{phase=~\"Running|Pending\", cluster=~\"$cluster\"} == 1))) >= (sum by (namespace) (rate(container_cpu_usage_seconds_total{container!=\"\", image!=\"\", cluster=~\"$cluster\"}[$__rate_interval])))) or (sum by (namespace) (rate(container_cpu_usage_seconds_total{container!=\"\", image!=\"\", cluster=~\"$cluster\"}[$__rate_interval])))) / $node_vcpu + 0.5 * sum(((sum by (namespace) (kube_pod_container_resource_requests{resource=\"memory\", cluster=~\"$cluster\"} * on (cluster, namespace, pod) group_left () max by (cluster, namespace, pod) (kube_pod_status_phase{phase=~\"Running|Pending\", cluster=~\"$cluster\"} == 1))) >= (sum by (namespace) (container_memory_working_set_bytes{container!=\"\", image!=\"\", cluster=~\"$cluster\"}))) or (sum by (namespace) (container_memory_working_set_bytes{container!=\"\", image!=\"\", cluster=~\"$cluster\"}))) / ($node_memory_gib * 1024 * 1024 * 1024))",
+          "legendFormat": "allocated to namespaces",
+          "range": true,
+          "instant": false
+        },
+        {
+          "refId": "B",
+          "expr": "clamp_min(730 * $node_hourly_price * count(kube_node_info{cluster=~\"$cluster\"}) - 730 * $node_hourly_price * (0.5 * sum(((sum by (namespace) (kube_pod_container_resource_requests{resource=\"cpu\", cluster=~\"$cluster\"} * on (cluster, namespace, pod) group_left () max by (cluster, namespace, pod) (kube_pod_status_phase{phase=~\"Running|Pending\", cluster=~\"$cluster\"} == 1))) >= (sum by (namespace) (rate(container_cpu_usage_seconds_total{container!=\"\", image!=\"\", cluster=~\"$cluster\"}[$__rate_interval])))) or (sum by (namespace) (rate(container_cpu_usage_seconds_total{container!=\"\", image!=\"\", cluster=~\"$cluster\"}[$__rate_interval])))) / $node_vcpu + 0.5 * sum(((sum by (namespace) (kube_pod_container_resource_requests{resource=\"memory\", cluster=~\"$cluster\"} * on (cluster, namespace, pod) group_left () max by (cluster, namespace, pod) (kube_pod_status_phase{phase=~\"Running|Pending\", cluster=~\"$cluster\"} == 1))) >= (sum by (namespace) (container_memory_working_set_bytes{container!=\"\", image!=\"\", cluster=~\"$cluster\"}))) or (sum by (namespace) (container_memory_working_set_bytes{container!=\"\", image!=\"\", cluster=~\"$cluster\"}))) / ($node_memory_gib * 1024 * 1024 * 1024)), 0)",
+          "legendFormat": "idle (unallocated nodes capacity)",
+          "range": true,
+          "instant": false
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "currencyUSD",
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 1,
+            "fillOpacity": 10,
+            "showPoints": "never",
+            "spanNulls": false,
+            "stacking": {
+              "mode": "normal",
+              "group": "A"
+            }
+          },
+          "color": {
+            "mode": "palette-classic"
+          },
+          "min": 0
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "right",
+          "calcs": [
+            "mean",
+            "max",
+            "lastNotNull"
+          ],
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "id": 18,
+      "gridPos": {
+        "h": 10,
+        "w": 12,
+        "x": 12,
+        "y": 41
+      }
+    }
+  ]
+}

@@ -1,0 +1,1027 @@
+{
+  "uid": "slo-error-budget",
+  "title": "SLO / Error Budget",
+  "description": "Error budget, burn rates and SLI for any service using the service_slo:* recording-rule convention (alerts/slo-example-api.yaml).",
+  "tags": [
+    "slo",
+    "alerting"
+  ],
+  "timezone": "browser",
+  "editable": false,
+  "graphTooltip": 1,
+  "schemaVersion": 39,
+  "version": 1,
+  "refresh": "1m",
+  "time": {
+    "from": "now-7d",
+    "to": "now"
+  },
+  "fiscalYearStartMonth": 0,
+  "liveNow": false,
+  "weekStart": "",
+  "templating": {
+    "list": [
+      {
+        "type": "datasource",
+        "name": "datasource",
+        "label": "Metrics",
+        "query": "prometheus",
+        "hide": 0,
+        "refresh": 1,
+        "regex": "",
+        "current": {
+          "selected": false,
+          "text": "VictoriaMetrics",
+          "value": "victoriametrics"
+        },
+        "options": [],
+        "includeAll": false,
+        "multi": false
+      },
+      {
+        "type": "query",
+        "name": "service",
+        "label": "Service",
+        "datasource": {
+          "type": "prometheus",
+          "uid": "${datasource}"
+        },
+        "definition": "label_values(service_slo:error_budget:ratio, service)",
+        "query": {
+          "query": "label_values(service_slo:error_budget:ratio, service)",
+          "refId": "Var-service"
+        },
+        "refresh": 2,
+        "sort": 1,
+        "hide": 0,
+        "regex": "",
+        "multi": false,
+        "includeAll": false,
+        "options": [],
+        "current": {
+          "selected": true,
+          "text": "",
+          "value": ""
+        }
+      },
+      {
+        "type": "query",
+        "name": "slo",
+        "label": "SLO",
+        "datasource": {
+          "type": "prometheus",
+          "uid": "${datasource}"
+        },
+        "definition": "label_values(service_slo:error_budget:ratio{service=\"$service\"}, slo)",
+        "query": {
+          "query": "label_values(service_slo:error_budget:ratio{service=\"$service\"}, slo)",
+          "refId": "Var-slo"
+        },
+        "refresh": 2,
+        "sort": 1,
+        "hide": 0,
+        "regex": "",
+        "multi": false,
+        "includeAll": false,
+        "options": [],
+        "current": {
+          "selected": true,
+          "text": "",
+          "value": ""
+        }
+      }
+    ]
+  },
+  "annotations": {
+    "list": [
+      {
+        "builtIn": 1,
+        "datasource": {
+          "type": "grafana",
+          "uid": "-- Grafana --"
+        },
+        "enable": true,
+        "hide": true,
+        "iconColor": "rgba(0, 211, 255, 1)",
+        "name": "Annotations & Alerts",
+        "type": "dashboard"
+      }
+    ]
+  },
+  "links": [],
+  "panels": [
+    {
+      "type": "row",
+      "title": "30-day window",
+      "id": 1,
+      "collapsed": false,
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 0
+      },
+      "panels": []
+    },
+    {
+      "type": "stat",
+      "title": "Objective",
+      "description": "",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${datasource}"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "1 - max(service_slo:error_budget:ratio{service=\"$service\", slo=\"$slo\"})",
+          "legendFormat": "__auto",
+          "range": false,
+          "instant": true
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percentunit",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "text",
+                "value": null
+              }
+            ]
+          },
+          "color": {
+            "mode": "thresholds"
+          },
+          "decimals": 2
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "colorMode": "value",
+        "graphMode": "none",
+        "justifyMode": "auto",
+        "textMode": "auto",
+        "orientation": "auto"
+      },
+      "id": 2,
+      "gridPos": {
+        "h": 5,
+        "w": 4,
+        "x": 0,
+        "y": 1
+      }
+    },
+    {
+      "type": "stat",
+      "title": "SLI (last 30d)",
+      "description": "Traffic-weighted over 30 days from the 5m event-rate recording rules. Needs 30 days of history, so query it against VictoriaMetrics, not the 4-day Prometheus.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${datasource}"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "1 - (sum(sum_over_time(service_slo:sli_bad:rate5m{service=\"$service\", slo=\"$slo\"}[30d])) / sum(sum_over_time(service_slo:sli_total:rate5m{service=\"$service\", slo=\"$slo\"}[30d])))",
+          "legendFormat": "__auto",
+          "range": false,
+          "instant": true
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percentunit",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "text",
+                "value": null
+              }
+            ]
+          },
+          "color": {
+            "mode": "thresholds"
+          },
+          "decimals": 3
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "colorMode": "value",
+        "graphMode": "none",
+        "justifyMode": "auto",
+        "textMode": "auto",
+        "orientation": "auto"
+      },
+      "id": 3,
+      "gridPos": {
+        "h": 5,
+        "w": 4,
+        "x": 4,
+        "y": 1
+      }
+    },
+    {
+      "type": "stat",
+      "title": "Error budget remaining",
+      "description": "1 − (observed error ratio / allowed error ratio). Negative means the SLO is already missed for this window.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${datasource}"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "1 - (sum(sum_over_time(service_slo:sli_bad:rate5m{service=\"$service\", slo=\"$slo\"}[30d])) / sum(sum_over_time(service_slo:sli_total:rate5m{service=\"$service\", slo=\"$slo\"}[30d]))) / scalar(max(service_slo:error_budget:ratio{service=\"$service\", slo=\"$slo\"}))",
+          "legendFormat": "__auto",
+          "range": false,
+          "instant": true
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percentunit",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "red",
+                "value": null
+              },
+              {
+                "color": "orange",
+                "value": 0
+              },
+              {
+                "color": "yellow",
+                "value": 0.25
+              },
+              {
+                "color": "green",
+                "value": 0.5
+              }
+            ]
+          },
+          "color": {
+            "mode": "thresholds"
+          },
+          "decimals": 1
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "colorMode": "background",
+        "graphMode": "none",
+        "justifyMode": "auto",
+        "textMode": "auto",
+        "orientation": "auto"
+      },
+      "id": 4,
+      "gridPos": {
+        "h": 5,
+        "w": 4,
+        "x": 8,
+        "y": 1
+      }
+    },
+    {
+      "type": "stat",
+      "title": "Burn rate (1h)",
+      "description": "1x spends exactly the budget over 30 days. Pages at 14.4x (1h) and 6x (6h); tickets at 3x (1d) and 1x (3d).",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${datasource}"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "max(service_slo:sli_error:ratio_rate1h{service=\"$service\", slo=\"$slo\"}) / scalar(max(service_slo:error_budget:ratio{service=\"$service\", slo=\"$slo\"}))",
+          "legendFormat": "__auto",
+          "range": false,
+          "instant": true
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "suffix:x",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "orange",
+                "value": 6
+              },
+              {
+                "color": "red",
+                "value": 14.4
+              }
+            ]
+          },
+          "color": {
+            "mode": "thresholds"
+          },
+          "decimals": 2
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "colorMode": "value",
+        "graphMode": "none",
+        "justifyMode": "auto",
+        "textMode": "auto",
+        "orientation": "auto"
+      },
+      "id": 5,
+      "gridPos": {
+        "h": 5,
+        "w": 4,
+        "x": 12,
+        "y": 1
+      }
+    },
+    {
+      "type": "stat",
+      "title": "Burn rate (6h)",
+      "description": "1x spends exactly the budget over 30 days. Pages at 14.4x (1h) and 6x (6h); tickets at 3x (1d) and 1x (3d).",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${datasource}"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "max(service_slo:sli_error:ratio_rate6h{service=\"$service\", slo=\"$slo\"}) / scalar(max(service_slo:error_budget:ratio{service=\"$service\", slo=\"$slo\"}))",
+          "legendFormat": "__auto",
+          "range": false,
+          "instant": true
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "suffix:x",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "orange",
+                "value": 3
+              },
+              {
+                "color": "red",
+                "value": 6
+              }
+            ]
+          },
+          "color": {
+            "mode": "thresholds"
+          },
+          "decimals": 2
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "colorMode": "value",
+        "graphMode": "none",
+        "justifyMode": "auto",
+        "textMode": "auto",
+        "orientation": "auto"
+      },
+      "id": 6,
+      "gridPos": {
+        "h": 5,
+        "w": 4,
+        "x": 16,
+        "y": 1
+      }
+    },
+    {
+      "type": "stat",
+      "title": "Burn rate (3d)",
+      "description": "1x spends exactly the budget over 30 days. Pages at 14.4x (1h) and 6x (6h); tickets at 3x (1d) and 1x (3d).",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${datasource}"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "max(service_slo:sli_error:ratio_rate3d{service=\"$service\", slo=\"$slo\"}) / scalar(max(service_slo:error_budget:ratio{service=\"$service\", slo=\"$slo\"}))",
+          "legendFormat": "__auto",
+          "range": false,
+          "instant": true
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "suffix:x",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "orange",
+                "value": 1
+              },
+              {
+                "color": "red",
+                "value": 3
+              }
+            ]
+          },
+          "color": {
+            "mode": "thresholds"
+          },
+          "decimals": 2
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "colorMode": "value",
+        "graphMode": "none",
+        "justifyMode": "auto",
+        "textMode": "auto",
+        "orientation": "auto"
+      },
+      "id": 7,
+      "gridPos": {
+        "h": 5,
+        "w": 4,
+        "x": 20,
+        "y": 1
+      }
+    },
+    {
+      "type": "timeseries",
+      "title": "Error budget remaining (rolling 30d)",
+      "description": "",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${datasource}"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "1 - (sum(sum_over_time(service_slo:sli_bad:rate5m{service=\"$service\", slo=\"$slo\"}[30d])) / sum(sum_over_time(service_slo:sli_total:rate5m{service=\"$service\", slo=\"$slo\"}[30d]))) / scalar(max(service_slo:error_budget:ratio{service=\"$service\", slo=\"$slo\"}))",
+          "legendFormat": "budget remaining",
+          "range": true,
+          "instant": false
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percentunit",
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 1,
+            "fillOpacity": 20,
+            "showPoints": "never",
+            "spanNulls": false,
+            "stacking": {
+              "mode": "none",
+              "group": "A"
+            },
+            "thresholdsStyle": {
+              "mode": "dashed"
+            }
+          },
+          "color": {
+            "mode": "palette-classic"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "red",
+                "value": null
+              },
+              {
+                "color": "green",
+                "value": 0
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "right",
+          "calcs": [
+            "mean",
+            "max",
+            "lastNotNull"
+          ],
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "id": 8,
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 6
+      }
+    },
+    {
+      "type": "timeseries",
+      "title": "Burn rate by window",
+      "description": "",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${datasource}"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "max(service_slo:sli_error:ratio_rate5m{service=\"$service\", slo=\"$slo\"}) / scalar(max(service_slo:error_budget:ratio{service=\"$service\", slo=\"$slo\"}))",
+          "legendFormat": "5m",
+          "range": true,
+          "instant": false
+        },
+        {
+          "refId": "B",
+          "expr": "max(service_slo:sli_error:ratio_rate1h{service=\"$service\", slo=\"$slo\"}) / scalar(max(service_slo:error_budget:ratio{service=\"$service\", slo=\"$slo\"}))",
+          "legendFormat": "1h",
+          "range": true,
+          "instant": false
+        },
+        {
+          "refId": "C",
+          "expr": "max(service_slo:sli_error:ratio_rate6h{service=\"$service\", slo=\"$slo\"}) / scalar(max(service_slo:error_budget:ratio{service=\"$service\", slo=\"$slo\"}))",
+          "legendFormat": "6h",
+          "range": true,
+          "instant": false
+        },
+        {
+          "refId": "D",
+          "expr": "max(service_slo:sli_error:ratio_rate1d{service=\"$service\", slo=\"$slo\"}) / scalar(max(service_slo:error_budget:ratio{service=\"$service\", slo=\"$slo\"}))",
+          "legendFormat": "1d",
+          "range": true,
+          "instant": false
+        },
+        {
+          "refId": "E",
+          "expr": "max(service_slo:sli_error:ratio_rate3d{service=\"$service\", slo=\"$slo\"}) / scalar(max(service_slo:error_budget:ratio{service=\"$service\", slo=\"$slo\"}))",
+          "legendFormat": "3d",
+          "range": true,
+          "instant": false
+        },
+        {
+          "refId": "F",
+          "expr": "vector(14.4)",
+          "legendFormat": "page 14.4x",
+          "range": true,
+          "instant": false
+        },
+        {
+          "refId": "G",
+          "expr": "vector(6)",
+          "legendFormat": "page 6x",
+          "range": true,
+          "instant": false
+        },
+        {
+          "refId": "H",
+          "expr": "vector(1)",
+          "legendFormat": "ticket 1x",
+          "range": true,
+          "instant": false
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "suffix:x",
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 1,
+            "fillOpacity": 0,
+            "showPoints": "never",
+            "spanNulls": false,
+            "stacking": {
+              "mode": "none",
+              "group": "A"
+            }
+          },
+          "color": {
+            "mode": "palette-classic"
+          },
+          "min": 0
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "page 14.4x"
+            },
+            "properties": [
+              {
+                "id": "custom.lineStyle",
+                "value": {
+                  "fill": "dash",
+                  "dash": [
+                    10,
+                    10
+                  ]
+                }
+              },
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "red"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "page 6x"
+            },
+            "properties": [
+              {
+                "id": "custom.lineStyle",
+                "value": {
+                  "fill": "dash",
+                  "dash": [
+                    10,
+                    10
+                  ]
+                }
+              },
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "orange"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "ticket 1x"
+            },
+            "properties": [
+              {
+                "id": "custom.lineStyle",
+                "value": {
+                  "fill": "dash",
+                  "dash": [
+                    10,
+                    10
+                  ]
+                }
+              },
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "yellow"
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "right",
+          "calcs": [
+            "mean",
+            "max",
+            "lastNotNull"
+          ],
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "id": 9,
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 6
+      }
+    },
+    {
+      "type": "row",
+      "title": "Traffic",
+      "id": 10,
+      "collapsed": false,
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 14
+      },
+      "panels": []
+    },
+    {
+      "type": "timeseries",
+      "title": "Events per second",
+      "description": "",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${datasource}"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum(service_slo:sli_total:rate5m{service=\"$service\", slo=\"$slo\"})",
+          "legendFormat": "total",
+          "range": true,
+          "instant": false
+        },
+        {
+          "refId": "B",
+          "expr": "sum(service_slo:sli_bad:rate5m{service=\"$service\", slo=\"$slo\"})",
+          "legendFormat": "bad",
+          "range": true,
+          "instant": false
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "reqps",
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 1,
+            "fillOpacity": 10,
+            "showPoints": "never",
+            "spanNulls": false,
+            "stacking": {
+              "mode": "none",
+              "group": "A"
+            }
+          },
+          "color": {
+            "mode": "palette-classic"
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "bad"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "red"
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "right",
+          "calcs": [
+            "mean",
+            "max",
+            "lastNotNull"
+          ],
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "id": 11,
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 15
+      }
+    },
+    {
+      "type": "timeseries",
+      "title": "Error ratio (5m) vs allowed",
+      "description": "",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${datasource}"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "max(service_slo:sli_error:ratio_rate5m{service=\"$service\", slo=\"$slo\"})",
+          "legendFormat": "error ratio",
+          "range": true,
+          "instant": false
+        },
+        {
+          "refId": "B",
+          "expr": "max(service_slo:error_budget:ratio{service=\"$service\", slo=\"$slo\"})",
+          "legendFormat": "allowed (1 − objective)",
+          "range": true,
+          "instant": false
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percentunit",
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 1,
+            "fillOpacity": 0,
+            "showPoints": "never",
+            "spanNulls": false,
+            "stacking": {
+              "mode": "none",
+              "group": "A"
+            }
+          },
+          "color": {
+            "mode": "palette-classic"
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "allowed (1 − objective)"
+            },
+            "properties": [
+              {
+                "id": "custom.lineStyle",
+                "value": {
+                  "fill": "dash",
+                  "dash": [
+                    10,
+                    10
+                  ]
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "right",
+          "calcs": [
+            "mean",
+            "max",
+            "lastNotNull"
+          ],
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "id": 12,
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 15
+      }
+    },
+    {
+      "type": "state-timeline",
+      "title": "SLO alerts",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${datasource}"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "max by (alertname) (ALERTS{alertname=~\"SLOErrorBudgetBurn.*\", service=\"$service\", slo=\"$slo\", alertstate=\"firing\"})",
+          "legendFormat": "{{alertname}}",
+          "range": true,
+          "instant": false
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "transparent",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 1
+              }
+            ]
+          },
+          "mappings": [
+            {
+              "type": "value",
+              "options": {
+                "1": {
+                  "text": "firing"
+                }
+              }
+            }
+          ],
+          "custom": {
+            "fillOpacity": 80,
+            "lineWidth": 0
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "showValue": "never",
+        "mergeValues": true,
+        "rowHeight": 0.8,
+        "alignValue": "left",
+        "legend": {
+          "showLegend": false
+        }
+      },
+      "id": 13,
+      "gridPos": {
+        "h": 5,
+        "w": 24,
+        "x": 0,
+        "y": 23
+      }
+    }
+  ]
+}

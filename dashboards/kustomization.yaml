@@ -1,0 +1,33 @@
+# Dashboards are shipped as ConfigMaps. The Grafana sidecar (configured in
+# values/kube-prometheus-stack.yaml) watches every namespace for the
+# grafana_dashboard="1" label and loads them; grafana_folder picks the folder.
+---
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+namespace: monitoring
+
+generatorOptions:
+  disableNameSuffixHash: true
+  labels:
+    grafana_dashboard: "1"
+    app.kubernetes.io/part-of: k8s-observability-stack
+
+configMapGenerator:
+  - name: dashboard-kubernetes-cluster-cost
+    files:
+      - kubernetes-cluster-cost.json
+    options:
+      annotations:
+        grafana_folder: Kubernetes
+  - name: dashboard-slo-error-budget
+    files:
+      - slo-error-budget.json
+    options:
+      annotations:
+        grafana_folder: SLO
+  - name: dashboard-loki-logs-overview
+    files:
+      - loki-logs-overview.json
+    options:
+      annotations:
+        grafana_folder: Logs

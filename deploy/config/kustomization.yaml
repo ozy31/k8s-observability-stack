@@ -1,0 +1,9 @@
+# Everything that is "config" rather than a Helm chart: alert rules and
+# dashboards. Synced by the observability-config Argo CD Application, or
+# applied directly with: kubectl apply -k deploy/config
+---
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+resources:
+  - ../../alerts
+  - ../../dashboards
