@@ -1,0 +1,8 @@
+# Routing assertions, checked in CI with `amtool config routes test`.
+# Format: <expected receivers (comma separated)> | <label set>
+pagerduty-critical,slack-critical | severity=critical alertname=SLOErrorBudgetBurnFast service=example-api
+slack-warning | severity=warning alertname=KubePodCrashLooping namespace=payments
+null | severity=info alertname=CPUThrottlingHigh namespace=payments
+deadmansswitch | alertname=Watchdog severity=none
+null | alertname=InfoInhibitor severity=none
+slack-warning | alertname=SomethingWithoutSeverity

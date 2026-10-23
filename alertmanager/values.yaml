@@ -1,0 +1,147 @@
+# Alertmanager routing — layered on top of values/kube-prometheus-stack.yaml:
+#
+#   helm upgrade --install kps prometheus-community/kube-prometheus-stack \
+#     -f values/kube-prometheus-stack.yaml -f alertmanager/values.yaml
+#
+# Credentials are NEVER inlined. Every receiver reads its secret from a file
+# mounted from the Secret "alertmanager-receivers"
+# (alertmanager.alertmanagerSpec.secrets in the main values file).
+# See secret.example.yaml / externalsecret.yaml for how that Secret is built.
+#
+# Severity contract (enforced by CI on every rule in alerts/):
+#   critical -> a human is paged now (PagerDuty) + mirrored to Slack
+#   warning  -> Slack, handled during working hours
+#   info     -> not routed; visible in Grafana / Alertmanager UI only
+---
+alertmanager:
+  config:
+    global:
+      resolve_timeout: 5m
+
+    templates:
+      - /etc/alertmanager/config/*.tmpl
+
+    route:
+      receiver: slack-warning
+      # Group by the things a responder acts on. One notification per
+      # alertname+namespace (+service for SLO alerts) instead of one per pod.
+      group_by: [alertname, cluster, namespace, service]
+      group_wait: 30s
+      group_interval: 5m
+      repeat_interval: 4h
+      routes:
+        # Dead man's switch: the external service alerts if this STOPS arriving.
+        - receiver: deadmansswitch
+          matchers: ['alertname = "Watchdog"']
+          group_wait: 0s
+          group_interval: 1m
+          repeat_interval: 1m
+
+        # Used only to drive inhibition of info alerts; never notifies.
+        - receiver: "null"
+          matchers: ['alertname = "InfoInhibitor"']
+
+        - receiver: pagerduty-critical
+          matchers: ['severity = "critical"']
+          repeat_interval: 1h
+          continue: true  # also mirror to Slack below
+        - receiver: slack-critical
+          matchers: ['severity = "critical"']
+          repeat_interval: 1h
+
+        - receiver: slack-warning
+          matchers: ['severity = "warning"']
+          repeat_interval: 12h
+
+        - receiver: "null"
+          matchers: ['severity = "info"']
+
+    inhibit_rules:
+      # A critical alert silences the matching warning for the same thing.
+      - source_matchers: ['severity = "critical"']
+        target_matchers: ['severity = "warning"']
+        equal: [alertname, cluster, namespace]
+      # Fast budget burn already pages; the slow-burn ticket is noise.
+      - source_matchers: ['alertname = "SLOErrorBudgetBurnFast"']
+        target_matchers: ['alertname = "SLOErrorBudgetBurnSlow"']
+        equal: [cluster, service, slo]
+      # A node that is NotReady explains everything else on that node.
+      - source_matchers: ['alertname = "KubeNodeNotReady"']
+        target_matchers: ['alertname =~ "KubeNode(MemoryPressure|DiskPressure|PIDPressure)"']
+        equal: [cluster, node]
+      # Same for certificate expiry: <7d (critical) supersedes <21d (warning).
+      - source_matchers: ['alertname = "CertManagerCertificateExpiryCritical"']
+        target_matchers: ['alertname = "CertManagerCertificateExpiringSoon"']
+        equal: [cluster, namespace, name]
+      - source_matchers: ['alertname = "InfoInhibitor"']
+        target_matchers: ['severity = "info"']
+        equal: [namespace]
+
+    receivers:
+      - name: "null"
+
+      - name: deadmansswitch
+        webhook_configs:
+          - url_file: /etc/alertmanager/secrets/alertmanager-receivers/deadmansswitch-url
+            send_resolved: false
+
+      - name: pagerduty-critical
+        pagerduty_configs:
+          - routing_key_file: /etc/alertmanager/secrets/alertmanager-receivers/pagerduty-routing-key
+            severity: critical
+            description: '{{ template "pd.description" . }}'
+            details:
+              firing: '{{ template "pd.details" . }}'
+              num_firing: '{{ .Alerts.Firing | len }}'
+            links:
+              - href: '{{ (index .Alerts 0).Annotations.runbook_url }}'
+                text: Runbook
+              - href: '{{ (index .Alerts 0).Annotations.dashboard_url }}'
+                text: Dashboard
+
+      - name: slack-critical
+        slack_configs:
+          - api_url_file: /etc/alertmanager/secrets/alertmanager-receivers/slack-critical-webhook
+            channel: "#alerts-critical"
+            send_resolved: true
+            title: '{{ template "slack.title" . }}'
+            text: '{{ template "slack.text" . }}'
+            color: '{{ template "slack.color" . }}'
+
+      - name: slack-warning
+        slack_configs:
+          - api_url_file: /etc/alertmanager/secrets/alertmanager-receivers/slack-warning-webhook
+            channel: "#alerts-warning"
+            send_resolved: true
+            title: '{{ template "slack.title" . }}'
+            text: '{{ template "slack.text" . }}'
+            color: '{{ template "slack.color" . }}'
+
+  templateFiles:
+    notifications.tmpl: |-
+      {{ define "slack.title" -}}
+      [{{ .Status | toUpper }}{{ if eq .Status "firing" }}:{{ .Alerts.Firing | len }}{{ end }}] {{ .CommonLabels.alertname }}
+      {{- with .CommonLabels.namespace }} · {{ . }}{{ end }}
+      {{- with .CommonLabels.cluster }} · {{ . }}{{ end }}
+      {{- end }}
+
+      {{ define "slack.color" -}}
+      {{ if eq .Status "resolved" }}good{{ else if eq .CommonLabels.severity "critical" }}danger{{ else }}warning{{ end }}
+      {{- end }}
+
+      {{ define "slack.text" -}}
+      {{ range .Alerts -}}
+      *{{ .Annotations.summary }}*
+      {{ .Annotations.description }}
+      {{ with .Annotations.runbook_url }}<{{ . }}|Runbook>{{ end }}{{ with .Annotations.dashboard_url }} · <{{ . }}|Dashboard>{{ end }}
+      {{ end -}}
+      {{- end }}
+
+      {{ define "pd.description" -}}
+      {{ .CommonLabels.alertname }}: {{ .CommonAnnotations.summary }}
+      {{- end }}
+
+      {{ define "pd.details" -}}
+      {{ range .Alerts.Firing }}{{ .Labels.alertname }} {{ .Labels.namespace }} {{ .Labels.pod }} {{ .Labels.service }}: {{ .Annotations.description }}
+      {{ end }}
+      {{- end }}
