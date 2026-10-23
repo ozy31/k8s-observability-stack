@@ -1,0 +1,64 @@
+---
+rule_files:
+  - ../build/rules/kubernetes-storage.yaml
+
+evaluation_interval: 1m
+
+tests:
+  - name: PVC almost full pages; read-only PVC is ignored
+    interval: 1m
+    input_series:
+      - series: 'kubelet_volume_stats_available_bytes{job="kubelet", namespace="db", persistentvolumeclaim="data-postgres-0"}'
+        values: '2x10'
+      - series: 'kubelet_volume_stats_capacity_bytes{job="kubelet", namespace="db", persistentvolumeclaim="data-postgres-0"}'
+        values: '100x10'
+      - series: 'kubelet_volume_stats_used_bytes{job="kubelet", namespace="db", persistentvolumeclaim="data-postgres-0"}'
+        values: '98x10'
+      - series: 'kubelet_volume_stats_available_bytes{job="kubelet", namespace="db", persistentvolumeclaim="shared-assets"}'
+        values: '1x10'
+      - series: 'kubelet_volume_stats_capacity_bytes{job="kubelet", namespace="db", persistentvolumeclaim="shared-assets"}'
+        values: '100x10'
+      - series: 'kubelet_volume_stats_used_bytes{job="kubelet", namespace="db", persistentvolumeclaim="shared-assets"}'
+        values: '99x10'
+      - series: 'kube_persistentvolumeclaim_access_mode{namespace="db", persistentvolumeclaim="shared-assets", access_mode="ReadOnlyMany"}'
+        values: '1x10'
+    alert_rule_test:
+      - eval_time: 5m
+        alertname: KubePersistentVolumeFillingUp
+        exp_alerts:
+          - exp_labels:
+              severity: critical
+              job: kubelet
+              namespace: db
+              persistentvolumeclaim: data-postgres-0
+            exp_annotations:
+              summary: PVC db/data-postgres-0 is almost full.
+              description: Only 2% space left. Expand the PVC (allowVolumeExpansion) or free space now.
+              runbook_url: https://github.com/ozy31/k8s-observability-stack/blob/main/docs/runbooks.md#kubepersistentvolumefillingup
+
+  - name: PVC trending to full within 4 days
+    interval: 5m
+    input_series:
+      # 100GiB volume, 12% free, losing ~1GiB per hour.
+      - series: 'kubelet_volume_stats_available_bytes{job="kubelet", namespace="logs", persistentvolumeclaim="es-data-0"}'
+        values: '12884901888-89478485x200'
+      - series: 'kubelet_volume_stats_capacity_bytes{job="kubelet", namespace="logs", persistentvolumeclaim="es-data-0"}'
+        values: '107374182400x200'
+      - series: 'kubelet_volume_stats_used_bytes{job="kubelet", namespace="logs", persistentvolumeclaim="es-data-0"}'
+        values: '94489280512+89478485x200'
+    alert_rule_test:
+      - eval_time: 8h
+        alertname: KubePersistentVolumeFillingUpPredicted
+        exp_alerts:
+          - exp_labels:
+              severity: warning
+              job: kubelet
+              namespace: logs
+              persistentvolumeclaim: es-data-0
+            exp_annotations:
+              description: "4% free and the 6h trend reaches zero within 4 days."
+              runbook_url: "https://github.com/ozy31/k8s-observability-stack/blob/main/docs/runbooks.md#kubepersistentvolumefillingup"
+              summary: "PVC logs/es-data-0 will fill up within 4 days."
+      - eval_time: 8h
+        alertname: KubePersistentVolumeFillingUp
+        exp_alerts: []

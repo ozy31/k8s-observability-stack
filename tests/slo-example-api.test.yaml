@@ -1,0 +1,110 @@
+# Unit tests for the multi-window multi-burn-rate SLO alerts.
+# Series use a 1m step; "0+98x400" is a counter growing by 98 per minute.
+---
+rule_files:
+  - ../build/rules/slo-example-api.yaml
+
+evaluation_interval: 30s
+
+tests:
+  - name: 2% errors (20x burn) pages and also opens a ticket
+    interval: 1m
+    input_series:
+      - series: 'http_requests_total{job="example-api", code="200"}'
+        values: '0+98x120'
+      - series: 'http_requests_total{job="example-api", code="500"}'
+        values: '0+2x120'
+    promql_expr_test:
+      - expr: service_slo:sli_error:ratio_rate5m{slo="availability"}
+        eval_time: 30m
+        exp_samples:
+          - labels: 'service_slo:sli_error:ratio_rate5m{service="example-api", slo="availability"}'
+            value: 0.02
+      - expr: service_slo:error_budget:ratio
+        eval_time: 30m
+        exp_samples:
+          - labels: 'service_slo:error_budget:ratio{service="example-api", slo="availability"}'
+            value: 0.001
+          - labels: 'service_slo:error_budget:ratio{service="example-api", slo="latency"}'
+            value: 0.01
+    alert_rule_test:
+      - eval_time: 30m
+        alertname: SLOErrorBudgetBurnFast
+        exp_alerts:
+          - exp_labels:
+              severity: critical
+              service: example-api
+              slo: availability
+            exp_annotations:
+              dashboard_url: "https://grafana.example.com/d/slo-error-budget?var-service=example-api&var-slo=availability"
+              description: "Error ratio is 2%. At this rate the 30-day error budget is exhausted in less than 5 days. Users are affected now."
+              runbook_url: "https://github.com/ozy31/k8s-observability-stack/blob/main/docs/runbooks.md#sloerrorbudgetburn"
+              summary: "example-api is burning its availability error budget fast."
+      - eval_time: 30m
+        alertname: SLOErrorBudgetBurnSlow
+        exp_alerts:
+          - exp_labels:
+              severity: warning
+              service: example-api
+              slo: availability
+            exp_annotations:
+              dashboard_url: "https://grafana.example.com/d/slo-error-budget?var-service=example-api&var-slo=availability"
+              description: "Error ratio is 2%. Not urgent, but the budget will run out before the end of the 30-day window if this continues."
+              runbook_url: "https://github.com/ozy31/k8s-observability-stack/blob/main/docs/runbooks.md#sloerrorbudgetburn"
+              summary: "example-api is steadily consuming its availability error budget."
+
+  - name: 5% slow requests (5x latency burn) opens a ticket but does not page
+    interval: 1m
+    input_series:
+      - series: 'http_requests_total{job="example-api", code="200"}'
+        values: '0+100x120'
+      - series: 'http_request_duration_seconds_count{job="example-api"}'
+        values: '0+100x120'
+      - series: 'http_request_duration_seconds_bucket{job="example-api", le="0.25"}'
+        values: '0+95x120'
+    alert_rule_test:
+      - eval_time: 1h
+        alertname: SLOErrorBudgetBurnFast
+        exp_alerts: []
+      - eval_time: 1h
+        alertname: SLOErrorBudgetBurnSlow
+        exp_alerts:
+          - exp_labels:
+              severity: warning
+              service: example-api
+              slo: latency
+            exp_annotations:
+              dashboard_url: "https://grafana.example.com/d/slo-error-budget?var-service=example-api&var-slo=latency"
+              description: "Error ratio is 5%. Not urgent, but the budget will run out before the end of the 30-day window if this continues."
+              runbook_url: "https://github.com/ozy31/k8s-observability-stack/blob/main/docs/runbooks.md#sloerrorbudgetburn"
+              summary: "example-api is steadily consuming its latency error budget."
+
+  - name: healthy service (0.05% errors, half the budget) stays quiet
+    interval: 1m
+    input_series:
+      - series: 'http_requests_total{job="example-api", code="200"}'
+        values: '0+1999x120'
+      - series: 'http_requests_total{job="example-api", code="503"}'
+        values: '0+1x120'
+    alert_rule_test:
+      - eval_time: 1h
+        alertname: SLOErrorBudgetBurnFast
+        exp_alerts: []
+      - eval_time: 1h
+        alertname: SLOErrorBudgetBurnSlow
+        exp_alerts: []
+
+  - name: a 3-minute error spike after hours of clean traffic does not page
+    interval: 1m
+    input_series:
+      - series: 'http_requests_total{job="example-api", code="200"}'
+        values: '0+100x320'
+      # 10 errors/min for 3 minutes starting at t=300m, nothing otherwise.
+      - series: 'http_requests_total{job="example-api", code="500"}'
+        values: '0x300 10 20 30 30x16'
+    alert_rule_test:
+      # The 5m window alone would fire (6% errors); the 1h/6h long windows
+      # (0.5% / 0.1%) prevent a page for a blip that is already over.
+      - eval_time: 305m
+        alertname: SLOErrorBudgetBurnFast
+        exp_alerts: []

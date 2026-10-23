@@ -1,0 +1,112 @@
+---
+rule_files:
+  - ../build/rules/kubernetes-workloads.yaml
+
+evaluation_interval: 1m
+
+tests:
+  - name: crashloop must persist 15m before alerting
+    interval: 1m
+    input_series:
+      - series: 'kube_pod_container_status_waiting_reason{job="kube-state-metrics", namespace="payments", pod="api-7d9f-abc", container="api", reason="CrashLoopBackOff"}'
+        values: '1x30'
+      # A short blip must not alert.
+      - series: 'kube_pod_container_status_waiting_reason{job="kube-state-metrics", namespace="payments", pod="worker-1", container="worker", reason="CrashLoopBackOff"}'
+        values: '1 1 1 _x27'
+    alert_rule_test:
+      - eval_time: 10m
+        alertname: KubePodCrashLooping
+        exp_alerts: []
+      - eval_time: 25m
+        alertname: KubePodCrashLooping
+        exp_alerts:
+          - exp_labels:
+              severity: warning
+              job: kube-state-metrics
+              namespace: payments
+              pod: api-7d9f-abc
+              container: api
+              reason: CrashLoopBackOff
+            exp_annotations:
+              description: "Container api in payments/api-7d9f-abc has been in CrashLoopBackOff for at least 15 minutes. Check: kubectl -n payments logs api-7d9f-abc -c api --previous"
+              runbook_url: "https://github.com/ozy31/k8s-observability-stack/blob/main/docs/runbooks.md#kubepodcrashlooping"
+              summary: "payments/api-7d9f-abc (api) is crash looping."
+
+  - name: OOMKilled restart
+    interval: 1m
+    input_series:
+      - series: 'kube_pod_container_status_restarts_total{job="kube-state-metrics", namespace="search", pod="indexer-0", container="indexer"}'
+        values: '0x10 1x10'
+      - series: 'kube_pod_container_status_last_terminated_reason{job="kube-state-metrics", namespace="search", pod="indexer-0", container="indexer", reason="OOMKilled"}'
+        values: '0x10 1x10'
+    alert_rule_test:
+      - eval_time: 5m
+        alertname: KubeContainerOOMKilled
+        exp_alerts: []
+      - eval_time: 15m
+        alertname: KubeContainerOOMKilled
+        exp_alerts:
+          - exp_labels:
+              severity: warning
+              job: kube-state-metrics
+              namespace: search
+              pod: indexer-0
+              container: indexer
+            exp_annotations:
+              description: "The container exceeded its memory limit and was restarted in the last 15 minutes. Compare the limit with working-set usage on the cost dashboard."
+              runbook_url: "https://github.com/ozy31/k8s-observability-stack/blob/main/docs/runbooks.md#kubecontaineroomkilled"
+              summary: "search/indexer-0 (indexer) was OOMKilled."
+
+  - name: stuck deployment vs progressing rollout
+    interval: 1m
+    input_series:
+      - series: 'kube_deployment_spec_replicas{job="kube-state-metrics", namespace="web", deployment="frontend"}'
+        values: '3x40'
+      - series: 'kube_deployment_status_replicas_available{job="kube-state-metrics", namespace="web", deployment="frontend"}'
+        values: '2x40'
+      - series: 'kube_deployment_status_replicas_updated{job="kube-state-metrics", namespace="web", deployment="frontend"}'
+        values: '3x40'
+      # Rolling out: updated replicas keep changing, so no alert.
+      - series: 'kube_deployment_spec_replicas{job="kube-state-metrics", namespace="web", deployment="backend"}'
+        values: '10x40'
+      - series: 'kube_deployment_status_replicas_available{job="kube-state-metrics", namespace="web", deployment="backend"}'
+        values: '8x40'
+      - series: 'kube_deployment_status_replicas_updated{job="kube-state-metrics", namespace="web", deployment="backend"}'
+        values: '0+1x10 0+1x10 0+1x10 0+1x10'
+    alert_rule_test:
+      - eval_time: 30m
+        alertname: KubeDeploymentReplicasMismatch
+        exp_alerts:
+          - exp_labels:
+              severity: warning
+              job: kube-state-metrics
+              namespace: web
+              deployment: frontend
+            exp_annotations:
+              description: "Fewer replicas are available than desired for 15 minutes and the rollout is not progressing."
+              runbook_url: "https://github.com/ozy31/k8s-observability-stack/blob/main/docs/runbooks.md#kubereplicasmismatch"
+              summary: "Deployment web/frontend is missing replicas."
+
+  - name: HPA pinned at max
+    interval: 1m
+    input_series:
+      - series: 'kube_horizontalpodautoscaler_status_current_replicas{job="kube-state-metrics", namespace="web", horizontalpodautoscaler="frontend"}'
+        values: '20x40'
+      - series: 'kube_horizontalpodautoscaler_spec_max_replicas{job="kube-state-metrics", namespace="web", horizontalpodautoscaler="frontend"}'
+        values: '20x40'
+    alert_rule_test:
+      - eval_time: 20m
+        alertname: KubeHpaMaxedOut
+        exp_alerts: []
+      - eval_time: 40m
+        alertname: KubeHpaMaxedOut
+        exp_alerts:
+          - exp_labels:
+              severity: warning
+              job: kube-state-metrics
+              namespace: web
+              horizontalpodautoscaler: frontend
+            exp_annotations:
+              description: "The HPA has been at maxReplicas for 30 minutes; it cannot absorb more load. Raise maxReplicas or investigate why load (or per-pod cost) grew."
+              runbook_url: "https://github.com/ozy31/k8s-observability-stack/blob/main/docs/runbooks.md#kubehpamaxedout"
+              summary: "HPA web/frontend is pinned at max replicas."

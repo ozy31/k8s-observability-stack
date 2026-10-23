@@ -1,0 +1,57 @@
+---
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: certificates
+  namespace: monitoring
+  labels:
+    app.kubernetes.io/part-of: k8s-observability-stack
+spec:
+  groups:
+    - name: certificates
+      rules:
+        # cert-manager renews at 2/3 of the lifetime (~30 days before expiry for
+        # 90-day certs). Still expiring within 21 days means renewal is failing.
+        - alert: CertManagerCertificateExpiringSoon
+          expr: |
+            (certmanager_certificate_expiration_timestamp_seconds - time()) < 21 * 24 * 3600
+          for: 1h
+          labels:
+            severity: warning
+          annotations:
+            summary: Certificate {{ $labels.namespace }}/{{ $labels.name }} expires in {{ $value | humanizeDuration }}.
+            description: cert-manager should have renewed it already. Check the Certificate, Order and Challenge resources.
+            runbook_url: https://github.com/ozy31/k8s-observability-stack/blob/main/docs/runbooks.md#certificateexpiry
+
+        - alert: CertManagerCertificateExpiryCritical
+          expr: |
+            (certmanager_certificate_expiration_timestamp_seconds - time()) < 7 * 24 * 3600
+          for: 1h
+          labels:
+            severity: critical
+          annotations:
+            summary: Certificate {{ $labels.namespace }}/{{ $labels.name }} expires in {{ $value | humanizeDuration }}.
+            description: Renewal has been failing for weeks; an outage is days away.
+            runbook_url: https://github.com/ozy31/k8s-observability-stack/blob/main/docs/runbooks.md#certificateexpiry
+
+        - alert: CertManagerCertificateNotReady
+          expr: max by (namespace, name) (certmanager_certificate_ready_status{condition="False"}) == 1
+          for: 15m
+          labels:
+            severity: warning
+          annotations:
+            summary: Certificate {{ $labels.namespace }}/{{ $labels.name }} is not Ready.
+            description: kubectl -n {{ $labels.namespace }} describe certificate {{ $labels.name }}
+            runbook_url: https://github.com/ozy31/k8s-observability-stack/blob/main/docs/runbooks.md#certificateexpiry
+
+        # Covers certificates not managed by cert-manager (cloud LBs, external
+        # endpoints) via blackbox-exporter probes.
+        - alert: TLSEndpointCertificateExpiringSoon
+          expr: (probe_ssl_earliest_cert_expiry - time()) < 14 * 24 * 3600
+          for: 1h
+          labels:
+            severity: warning
+          annotations:
+            summary: TLS certificate for {{ $labels.instance }} expires in {{ $value | humanizeDuration }}.
+            description: The endpoint is probed by blackbox-exporter; renew or rotate the certificate.
+            runbook_url: https://github.com/ozy31/k8s-observability-stack/blob/main/docs/runbooks.md#certificateexpiry

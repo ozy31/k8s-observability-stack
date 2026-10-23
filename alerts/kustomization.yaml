@@ -1,0 +1,13 @@
+---
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+namespace: monitoring
+resources:
+  - kubernetes-nodes.yaml
+  - kubernetes-workloads.yaml
+  - kubernetes-storage.yaml
+  - autoscaling.yaml
+  - certificates.yaml
+  # Hand-written SLO rules. To use the Sloth-generated variant instead,
+  # replace this line with ../slo/generated/example-api.yaml (never both).
+  - slo-example-api.yaml

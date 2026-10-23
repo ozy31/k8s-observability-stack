@@ -1,0 +1,88 @@
+# Node autoscaling health. Ship both groups; the one for the autoscaler you do
+# not run simply never matches any series.
+---
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: autoscaling
+  namespace: monitoring
+  labels:
+    app.kubernetes.io/part-of: k8s-observability-stack
+spec:
+  groups:
+    - name: autoscaling-common
+      rules:
+        # Autoscaler-agnostic symptom: pods that cannot be placed anywhere.
+        - alert: KubePodUnschedulable
+          expr: max by (namespace, pod) (kube_pod_status_unschedulable{job="kube-state-metrics"}) == 1
+          for: 15m
+          labels:
+            severity: warning
+          annotations:
+            summary: Pod {{ $labels.namespace }}/{{ $labels.pod }} has been unschedulable for 15 minutes.
+            description: >-
+              The node autoscaler could not (or would not) add capacity for this pod.
+              Typical causes: NodePool / node group limits, no instance type matches the
+              pod's requirements, insufficient cloud capacity, or a too-strict
+              nodeSelector / affinity / topology spread.
+            runbook_url: https://github.com/ozy31/k8s-observability-stack/blob/main/docs/runbooks.md#kubepodunschedulable
+
+    - name: karpenter
+      rules:
+        - alert: KarpenterCloudProviderErrors
+          expr: sum by (method, error) (rate(karpenter_cloudprovider_errors_total[10m])) > 0
+          for: 15m
+          labels:
+            severity: warning
+          annotations:
+            summary: "Karpenter cloud provider calls are failing ({{ $labels.method }}: {{ $labels.error }})."
+            description: >-
+              Karpenter cannot talk to the cloud API successfully. Common causes are
+              insufficient capacity, IAM permission drift, or service quotas.
+            runbook_url: https://github.com/ozy31/k8s-observability-stack/blob/main/docs/runbooks.md#karpentercloudprovidererrors
+
+        - alert: KarpenterNodePoolLimitNearlyReached
+          expr: |
+            karpenter_nodepools_usage / on (nodepool, resource_type) karpenter_nodepools_limit > 0.9
+          for: 15m
+          labels:
+            severity: warning
+          annotations:
+            summary: NodePool {{ $labels.nodepool }} is at {{ $value | humanizePercentage }} of its {{ $labels.resource_type }} limit.
+            description: >-
+              Once the limit is reached Karpenter stops provisioning for this NodePool
+              and new pods stay Pending. Raise spec.limits or rebalance workloads.
+            runbook_url: https://github.com/ozy31/k8s-observability-stack/blob/main/docs/runbooks.md#karpenternodepoollimitnearlyreached
+
+    - name: cluster-autoscaler
+      rules:
+        - alert: ClusterAutoscalerUnschedulablePods
+          expr: cluster_autoscaler_unschedulable_pods_count > 0
+          for: 20m
+          labels:
+            severity: warning
+          annotations:
+            summary: Cluster Autoscaler sees {{ $value }} unschedulable pods for 20 minutes.
+            description: Scale-up is not resolving pending pods. Check node group max sizes and autoscaler events.
+            runbook_url: https://github.com/ozy31/k8s-observability-stack/blob/main/docs/runbooks.md#clusterautoscalerunschedulablepods
+
+        - alert: ClusterAutoscalerNotSafeToScale
+          expr: cluster_autoscaler_cluster_safe_to_autoscale == 0
+          for: 15m
+          labels:
+            severity: warning
+          annotations:
+            summary: Cluster Autoscaler considers the cluster unsafe to autoscale.
+            description: Too many unready nodes; autoscaling is paused until the cluster recovers.
+            runbook_url: https://github.com/ozy31/k8s-observability-stack/blob/main/docs/runbooks.md#clusterautoscalernotsafetoscale
+
+        - alert: ClusterAutoscalerMaxNodesReached
+          expr: |
+            sum(cluster_autoscaler_nodes_count{state="ready"}) >= max(cluster_autoscaler_max_nodes_count)
+          for: 15m
+          labels:
+            severity: warning
+          annotations:
+            summary: Cluster Autoscaler reached its global max node count.
+            description: No further scale-up is possible until --max-nodes-total is raised.
+            runbook_url: https://github.com/ozy31/k8s-observability-stack/blob/main/docs/runbooks.md#clusterautoscalermaxnodesreached

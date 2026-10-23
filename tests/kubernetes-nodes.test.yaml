@@ -1,0 +1,86 @@
+---
+rule_files:
+  - ../build/rules/kubernetes-nodes.yaml
+
+evaluation_interval: 1m
+
+tests:
+  - name: node NotReady fires only after 15m
+    interval: 1m
+    input_series:
+      - series: 'kube_node_status_condition{job="kube-state-metrics", condition="Ready", status="true", node="ip-10-0-1-10"}'
+        values: '1 1 0x30'
+    alert_rule_test:
+      - eval_time: 10m
+        alertname: KubeNodeNotReady
+        exp_alerts: []
+      - eval_time: 20m
+        alertname: KubeNodeNotReady
+        exp_alerts:
+          - exp_labels:
+              severity: warning
+              job: kube-state-metrics
+              condition: Ready
+              status: "true"
+              node: ip-10-0-1-10
+            exp_annotations:
+              description: "Pods on ip-10-0-1-10 are not being managed. If the node is not replaced by the autoscaler, cordon/drain it and inspect kubelet logs."
+              runbook_url: "https://github.com/ozy31/k8s-observability-stack/blob/main/docs/runbooks.md#kubenodenotready"
+              summary: "Node ip-10-0-1-10 has been NotReady for 15 minutes."
+
+  - name: memory pressure
+    interval: 1m
+    input_series:
+      - series: 'kube_node_status_condition{job="kube-state-metrics", condition="MemoryPressure", status="true", node="ip-10-0-1-11"}'
+        values: '0 0 1x10'
+      - series: 'kube_node_status_condition{job="kube-state-metrics", condition="DiskPressure", status="true", node="ip-10-0-1-11"}'
+        values: '0x12'
+    alert_rule_test:
+      - eval_time: 10m
+        alertname: KubeNodeMemoryPressure
+        exp_alerts:
+          - exp_labels:
+              severity: warning
+              job: kube-state-metrics
+              condition: MemoryPressure
+              status: "true"
+              node: ip-10-0-1-11
+            exp_annotations:
+              description: "The kubelet on ip-10-0-1-11 reports MemoryPressure and will start evicting pods. Usually caused by pods without memory limits or requests far below real usage."
+              runbook_url: "https://github.com/ozy31/k8s-observability-stack/blob/main/docs/runbooks.md#kubenodepressure"
+              summary: "Node ip-10-0-1-11 is under memory pressure."
+      - eval_time: 10m
+        alertname: KubeNodeDiskPressure
+        exp_alerts: []
+
+  - name: memory requests overcommitted on a node
+    interval: 1m
+    input_series:
+      - series: 'kube_pod_container_resource_requests{job="kube-state-metrics", resource="memory", namespace="a", pod="p1", container="c", node="n1"}'
+        values: '9e9x30'
+      - series: 'kube_pod_container_resource_requests{job="kube-state-metrics", resource="memory", namespace="a", pod="p2", container="c", node="n1"}'
+        values: '9e9x30'
+      # p3 is Succeeded: its requests must not count.
+      - series: 'kube_pod_container_resource_requests{job="kube-state-metrics", resource="memory", namespace="a", pod="p3", container="c", node="n2"}'
+        values: '9e9x30'
+      - series: 'kube_pod_status_phase{namespace="a", pod="p1", phase="Running"}'
+        values: '1x30'
+      - series: 'kube_pod_status_phase{namespace="a", pod="p2", phase="Running"}'
+        values: '1x30'
+      - series: 'kube_pod_status_phase{namespace="a", pod="p3", phase="Running"}'
+        values: '0x30'
+      - series: 'kube_node_status_allocatable{job="kube-state-metrics", resource="memory", node="n1"}'
+        values: '16e9x30'
+      - series: 'kube_node_status_allocatable{job="kube-state-metrics", resource="memory", node="n2"}'
+        values: '4e9x30'
+    alert_rule_test:
+      - eval_time: 20m
+        alertname: KubeNodeMemoryRequestsOvercommitted
+        exp_alerts:
+          - exp_labels:
+              severity: warning
+              node: n1
+            exp_annotations:
+              description: "Running pods on n1 request 112.5% of allocatable memory. This should be impossible for scheduled pods and usually means allocatable shrank (kubelet reservation change) after scheduling."
+              runbook_url: "https://github.com/ozy31/k8s-observability-stack/blob/main/docs/runbooks.md#kubenodememoryrequestsovercommitted"
+              summary: "Memory requests on n1 exceed allocatable."

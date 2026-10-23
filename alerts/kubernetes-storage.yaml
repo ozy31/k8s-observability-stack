@@ -1,0 +1,81 @@
+---
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: kubernetes-storage
+  namespace: monitoring
+  labels:
+    app.kubernetes.io/part-of: k8s-observability-stack
+spec:
+  groups:
+    - name: kubernetes-storage
+      rules:
+        # Imminent outage: page.
+        - alert: KubePersistentVolumeFillingUp
+          expr: |
+            (
+              kubelet_volume_stats_available_bytes{job="kubelet"}
+                / kubelet_volume_stats_capacity_bytes{job="kubelet"}
+            ) < 0.03
+            and
+            kubelet_volume_stats_used_bytes{job="kubelet"} > 0
+            unless on (namespace, persistentvolumeclaim)
+            kube_persistentvolumeclaim_access_mode{access_mode="ReadOnlyMany"} == 1
+          for: 1m
+          labels:
+            severity: critical
+          annotations:
+            summary: PVC {{ $labels.namespace }}/{{ $labels.persistentvolumeclaim }} is almost full.
+            description: >-
+              Only {{ $value | humanizePercentage }} space left. Expand the PVC
+              (allowVolumeExpansion) or free space now.
+            runbook_url: https://github.com/ozy31/k8s-observability-stack/blob/main/docs/runbooks.md#kubepersistentvolumefillingup
+
+        # Trend-based early warning: ticket.
+        - alert: KubePersistentVolumeFillingUpPredicted
+          expr: |
+            (
+              kubelet_volume_stats_available_bytes{job="kubelet"}
+                / kubelet_volume_stats_capacity_bytes{job="kubelet"}
+            ) < 0.15
+            and
+            kubelet_volume_stats_used_bytes{job="kubelet"} > 0
+            and
+            predict_linear(kubelet_volume_stats_available_bytes{job="kubelet"}[6h], 4 * 24 * 3600) < 0
+            unless on (namespace, persistentvolumeclaim)
+            kube_persistentvolumeclaim_access_mode{access_mode="ReadOnlyMany"} == 1
+          for: 1h
+          labels:
+            severity: warning
+          annotations:
+            summary: PVC {{ $labels.namespace }}/{{ $labels.persistentvolumeclaim }} will fill up within 4 days.
+            description: >-
+              {{ $value | humanizePercentage }} free and the 6h trend reaches zero
+              within 4 days.
+            runbook_url: https://github.com/ozy31/k8s-observability-stack/blob/main/docs/runbooks.md#kubepersistentvolumefillingup
+
+        - alert: KubePersistentVolumeInodesFillingUp
+          expr: |
+            (
+              kubelet_volume_stats_inodes_free{job="kubelet"}
+                / kubelet_volume_stats_inodes{job="kubelet"}
+            ) < 0.05
+            and
+            kubelet_volume_stats_inodes_used{job="kubelet"} > 0
+          for: 15m
+          labels:
+            severity: warning
+          annotations:
+            summary: PVC {{ $labels.namespace }}/{{ $labels.persistentvolumeclaim }} is running out of inodes.
+            description: Only {{ $value | humanizePercentage }} inodes left.
+            runbook_url: https://github.com/ozy31/k8s-observability-stack/blob/main/docs/runbooks.md#kubepersistentvolumefillingup
+
+        - alert: KubePersistentVolumeErrors
+          expr: kube_persistentvolume_status_phase{job="kube-state-metrics", phase=~"Failed|Pending"} > 0
+          for: 10m
+          labels:
+            severity: warning
+          annotations:
+            summary: PersistentVolume {{ $labels.persistentvolume }} is {{ $labels.phase }}.
+            description: Check the CSI driver logs and the PV events.
+            runbook_url: https://github.com/ozy31/k8s-observability-stack/blob/main/docs/runbooks.md#kubepersistentvolumeerrors

@@ -1,0 +1,79 @@
+---
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: kubernetes-nodes
+  namespace: monitoring
+  labels:
+    app.kubernetes.io/part-of: k8s-observability-stack
+spec:
+  groups:
+    - name: kubernetes-nodes
+      rules:
+        - alert: KubeNodeNotReady
+          expr: kube_node_status_condition{job="kube-state-metrics", condition="Ready", status="true"} == 0
+          for: 15m
+          labels:
+            severity: warning
+          annotations:
+            summary: Node {{ $labels.node }} has been NotReady for 15 minutes.
+            description: >-
+              Pods on {{ $labels.node }} are not being managed. If the node is
+              not replaced by the autoscaler, cordon/drain it and inspect kubelet logs.
+            runbook_url: https://github.com/ozy31/k8s-observability-stack/blob/main/docs/runbooks.md#kubenodenotready
+
+        - alert: KubeNodeMemoryPressure
+          expr: kube_node_status_condition{job="kube-state-metrics", condition="MemoryPressure", status="true"} == 1
+          for: 5m
+          labels:
+            severity: warning
+          annotations:
+            summary: Node {{ $labels.node }} is under memory pressure.
+            description: >-
+              The kubelet on {{ $labels.node }} reports MemoryPressure and will
+              start evicting pods. Usually caused by pods without memory limits
+              or requests far below real usage.
+            runbook_url: https://github.com/ozy31/k8s-observability-stack/blob/main/docs/runbooks.md#kubenodepressure
+
+        - alert: KubeNodeDiskPressure
+          expr: kube_node_status_condition{job="kube-state-metrics", condition="DiskPressure", status="true"} == 1
+          for: 5m
+          labels:
+            severity: warning
+          annotations:
+            summary: Node {{ $labels.node }} is under disk pressure.
+            description: >-
+              The kubelet on {{ $labels.node }} reports DiskPressure (image or
+              ephemeral storage). Pods will be evicted and image GC is running.
+            runbook_url: https://github.com/ozy31/k8s-observability-stack/blob/main/docs/runbooks.md#kubenodepressure
+
+        - alert: KubeNodePIDPressure
+          expr: kube_node_status_condition{job="kube-state-metrics", condition="PIDPressure", status="true"} == 1
+          for: 5m
+          labels:
+            severity: warning
+          annotations:
+            summary: Node {{ $labels.node }} is running out of process IDs.
+            description: A workload on {{ $labels.node }} is likely leaking processes or threads.
+            runbook_url: https://github.com/ozy31/k8s-observability-stack/blob/main/docs/runbooks.md#kubenodepressure
+
+        - alert: KubeNodeMemoryRequestsOvercommitted
+          expr: |
+            sum by (node) (
+              kube_pod_container_resource_requests{job="kube-state-metrics", resource="memory"}
+              * on (namespace, pod) group_left ()
+              max by (namespace, pod) (kube_pod_status_phase{phase="Running"} == 1)
+            )
+            /
+            sum by (node) (kube_node_status_allocatable{job="kube-state-metrics", resource="memory"})
+            > 1
+          for: 15m
+          labels:
+            severity: warning
+          annotations:
+            summary: Memory requests on {{ $labels.node }} exceed allocatable.
+            description: >-
+              Running pods on {{ $labels.node }} request {{ $value | humanizePercentage }}
+              of allocatable memory. This should be impossible for scheduled pods and
+              usually means allocatable shrank (kubelet reservation change) after scheduling.
+            runbook_url: https://github.com/ozy31/k8s-observability-stack/blob/main/docs/runbooks.md#kubenodememoryrequestsovercommitted

@@ -1,0 +1,44 @@
+# Same scenario as slo-example-api.test.yaml, run against the Sloth-generated
+# rules: both approaches must page on a 20x availability burn.
+---
+rule_files:
+  - ../build/rules/sloth-example-api.yaml
+
+evaluation_interval: 30s
+
+tests:
+  - name: sloth page alert on 2% errors
+    interval: 1m
+    input_series:
+      - series: 'http_requests_total{job="example-api", code="200"}'
+        values: '0+98x120'
+      - series: 'http_requests_total{job="example-api", code="500"}'
+        values: '0+2x120'
+    alert_rule_test:
+      - eval_time: 30m
+        alertname: ExampleApiAvailabilityBudgetBurn
+        exp_alerts:
+          - exp_labels:
+              severity: critical
+              sloth_severity: page
+              category: availability
+              owner: platform
+              sloth_id: example-api-requests-availability
+              sloth_service: example-api
+              sloth_slo: requests-availability
+            exp_annotations:
+              runbook_url: "https://github.com/ozy31/k8s-observability-stack/blob/main/docs/runbooks.md#sloerrorbudgetburn"
+              summary: "example-api is burning its availability error budget."
+              title: "(page) example-api requests-availability SLO error budget burn rate is too fast."
+          - exp_labels:
+              severity: warning
+              sloth_severity: ticket
+              category: availability
+              owner: platform
+              sloth_id: example-api-requests-availability
+              sloth_service: example-api
+              sloth_slo: requests-availability
+            exp_annotations:
+              runbook_url: "https://github.com/ozy31/k8s-observability-stack/blob/main/docs/runbooks.md#sloerrorbudgetburn"
+              summary: "example-api is burning its availability error budget."
+              title: "(ticket) example-api requests-availability SLO error budget burn rate is too fast."

@@ -1,0 +1,251 @@
+# SLOs for the example HTTP service "example-api" — hand-written,
+# multi-window multi-burn-rate alerts (Google SRE Workbook, chapter 5).
+#
+#   availability: 99.9% of requests are not 5xx           (budget 0.1%)
+#   latency:      99%   of requests complete in < 250ms    (budget 1%)
+#   window:       30 days
+#
+# Naming convention (any service can reuse the generic alerts at the bottom):
+#   service_slo:error_budget:ratio{service, slo}        allowed error ratio (1 - objective)
+#   service_slo:sli_error:ratio_rate<W>{service, slo}   observed error ratio over window W
+#   service_slo:sli_total:rate5m / sli_bad:rate5m       event rates, used by the dashboard
+#                                                       to compute 30d budget in VictoriaMetrics
+#
+# Burn rate = observed error ratio / error budget. A burn rate of 1 spends
+# exactly the whole budget in 30 days.
+#
+#   severity  burn  long window  short window  budget spent when it fires
+#   critical  14.4  1h           5m            2%
+#   critical  6     6h           30m           5%
+#   warning   3     1d           2h            10%
+#   warning   1     3d           6h            10%
+#
+# The 3d window is why Prometheus keeps 4d of local data (values/kube-prometheus-stack.yaml).
+---
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: slo-example-api
+  namespace: monitoring
+  labels:
+    app.kubernetes.io/part-of: k8s-observability-stack
+spec:
+  groups:
+    - name: slo-example-api-recording
+      interval: 30s
+      rules:
+        - record: service_slo:error_budget:ratio
+          expr: vector(0.001)
+          labels:
+            service: example-api
+            slo: availability
+        - record: service_slo:error_budget:ratio
+          expr: vector(0.01)
+          labels:
+            service: example-api
+            slo: latency
+        # Event rates (5m) — cheap to keep for 13 months in VictoriaMetrics.
+        - record: service_slo:sli_total:rate5m
+          expr: |
+            sum(rate(http_requests_total{job="example-api"}[5m]))
+          labels:
+            service: example-api
+            slo: availability
+        - record: service_slo:sli_bad:rate5m
+          expr: |
+            sum(rate(http_requests_total{job="example-api", code=~"5.."}[5m]))
+          labels:
+            service: example-api
+            slo: availability
+        - record: service_slo:sli_total:rate5m
+          expr: |
+            sum(rate(http_request_duration_seconds_count{job="example-api"}[5m]))
+          labels:
+            service: example-api
+            slo: latency
+        - record: service_slo:sli_bad:rate5m
+          expr: |
+            sum(rate(http_request_duration_seconds_count{job="example-api"}[5m]))
+            -
+            sum(rate(http_request_duration_seconds_bucket{job="example-api", le="0.25"}[5m]))
+          labels:
+            service: example-api
+            slo: latency
+        # Error ratios per alerting window.
+        - record: service_slo:sli_error:ratio_rate5m
+          expr: |
+            sum(rate(http_requests_total{job="example-api", code=~"5.."}[5m]))
+            /
+            sum(rate(http_requests_total{job="example-api"}[5m]))
+          labels:
+            service: example-api
+            slo: availability
+        - record: service_slo:sli_error:ratio_rate30m
+          expr: |
+            sum(rate(http_requests_total{job="example-api", code=~"5.."}[30m]))
+            /
+            sum(rate(http_requests_total{job="example-api"}[30m]))
+          labels:
+            service: example-api
+            slo: availability
+        - record: service_slo:sli_error:ratio_rate1h
+          expr: |
+            sum(rate(http_requests_total{job="example-api", code=~"5.."}[1h]))
+            /
+            sum(rate(http_requests_total{job="example-api"}[1h]))
+          labels:
+            service: example-api
+            slo: availability
+        - record: service_slo:sli_error:ratio_rate2h
+          expr: |
+            sum(rate(http_requests_total{job="example-api", code=~"5.."}[2h]))
+            /
+            sum(rate(http_requests_total{job="example-api"}[2h]))
+          labels:
+            service: example-api
+            slo: availability
+        - record: service_slo:sli_error:ratio_rate6h
+          expr: |
+            sum(rate(http_requests_total{job="example-api", code=~"5.."}[6h]))
+            /
+            sum(rate(http_requests_total{job="example-api"}[6h]))
+          labels:
+            service: example-api
+            slo: availability
+        - record: service_slo:sli_error:ratio_rate1d
+          expr: |
+            sum(rate(http_requests_total{job="example-api", code=~"5.."}[1d]))
+            /
+            sum(rate(http_requests_total{job="example-api"}[1d]))
+          labels:
+            service: example-api
+            slo: availability
+        - record: service_slo:sli_error:ratio_rate3d
+          expr: |
+            sum(rate(http_requests_total{job="example-api", code=~"5.."}[3d]))
+            /
+            sum(rate(http_requests_total{job="example-api"}[3d]))
+          labels:
+            service: example-api
+            slo: availability
+        - record: service_slo:sli_error:ratio_rate5m
+          expr: |
+            1 - (
+              sum(rate(http_request_duration_seconds_bucket{job="example-api", le="0.25"}[5m]))
+              /
+              sum(rate(http_request_duration_seconds_count{job="example-api"}[5m]))
+            )
+          labels:
+            service: example-api
+            slo: latency
+        - record: service_slo:sli_error:ratio_rate30m
+          expr: |
+            1 - (
+              sum(rate(http_request_duration_seconds_bucket{job="example-api", le="0.25"}[30m]))
+              /
+              sum(rate(http_request_duration_seconds_count{job="example-api"}[30m]))
+            )
+          labels:
+            service: example-api
+            slo: latency
+        - record: service_slo:sli_error:ratio_rate1h
+          expr: |
+            1 - (
+              sum(rate(http_request_duration_seconds_bucket{job="example-api", le="0.25"}[1h]))
+              /
+              sum(rate(http_request_duration_seconds_count{job="example-api"}[1h]))
+            )
+          labels:
+            service: example-api
+            slo: latency
+        - record: service_slo:sli_error:ratio_rate2h
+          expr: |
+            1 - (
+              sum(rate(http_request_duration_seconds_bucket{job="example-api", le="0.25"}[2h]))
+              /
+              sum(rate(http_request_duration_seconds_count{job="example-api"}[2h]))
+            )
+          labels:
+            service: example-api
+            slo: latency
+        - record: service_slo:sli_error:ratio_rate6h
+          expr: |
+            1 - (
+              sum(rate(http_request_duration_seconds_bucket{job="example-api", le="0.25"}[6h]))
+              /
+              sum(rate(http_request_duration_seconds_count{job="example-api"}[6h]))
+            )
+          labels:
+            service: example-api
+            slo: latency
+        - record: service_slo:sli_error:ratio_rate1d
+          expr: |
+            1 - (
+              sum(rate(http_request_duration_seconds_bucket{job="example-api", le="0.25"}[1d]))
+              /
+              sum(rate(http_request_duration_seconds_count{job="example-api"}[1d]))
+            )
+          labels:
+            service: example-api
+            slo: latency
+        - record: service_slo:sli_error:ratio_rate3d
+          expr: |
+            1 - (
+              sum(rate(http_request_duration_seconds_bucket{job="example-api", le="0.25"}[3d]))
+              /
+              sum(rate(http_request_duration_seconds_count{job="example-api"}[3d]))
+            )
+          labels:
+            service: example-api
+            slo: latency
+
+    # Generic: fires for every (service, slo) pair that follows the convention.
+    - name: slo-alerts
+      rules:
+        - alert: SLOErrorBudgetBurnFast
+          expr: |
+            (
+              service_slo:sli_error:ratio_rate1h > on (service, slo) (14.4 * service_slo:error_budget:ratio)
+              and on (service, slo)
+              service_slo:sli_error:ratio_rate5m > on (service, slo) (14.4 * service_slo:error_budget:ratio)
+            )
+            or
+            (
+              service_slo:sli_error:ratio_rate6h > on (service, slo) (6 * service_slo:error_budget:ratio)
+              and on (service, slo)
+              service_slo:sli_error:ratio_rate30m > on (service, slo) (6 * service_slo:error_budget:ratio)
+            )
+          for: 2m
+          labels:
+            severity: critical
+          annotations:
+            summary: "{{ $labels.service }} is burning its {{ $labels.slo }} error budget fast."
+            description: >-
+              Error ratio is {{ $value | humanizePercentage }}. At this rate the 30-day
+              error budget is exhausted in less than 5 days. Users are affected now.
+            runbook_url: https://github.com/ozy31/k8s-observability-stack/blob/main/docs/runbooks.md#sloerrorbudgetburn
+            dashboard_url: https://grafana.example.com/d/slo-error-budget?var-service={{ $labels.service }}&var-slo={{ $labels.slo }}
+
+        - alert: SLOErrorBudgetBurnSlow
+          expr: |
+            (
+              service_slo:sli_error:ratio_rate1d > on (service, slo) (3 * service_slo:error_budget:ratio)
+              and on (service, slo)
+              service_slo:sli_error:ratio_rate2h > on (service, slo) (3 * service_slo:error_budget:ratio)
+            )
+            or
+            (
+              service_slo:sli_error:ratio_rate3d > on (service, slo) (1 * service_slo:error_budget:ratio)
+              and on (service, slo)
+              service_slo:sli_error:ratio_rate6h > on (service, slo) (1 * service_slo:error_budget:ratio)
+            )
+          for: 15m
+          labels:
+            severity: warning
+          annotations:
+            summary: "{{ $labels.service }} is steadily consuming its {{ $labels.slo }} error budget."
+            description: >-
+              Error ratio is {{ $value | humanizePercentage }}. Not urgent, but the
+              budget will run out before the end of the 30-day window if this continues.
+            runbook_url: https://github.com/ozy31/k8s-observability-stack/blob/main/docs/runbooks.md#sloerrorbudgetburn
+            dashboard_url: https://grafana.example.com/d/slo-error-budget?var-service={{ $labels.service }}&var-slo={{ $labels.slo }}

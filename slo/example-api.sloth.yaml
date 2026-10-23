@@ -1,0 +1,69 @@
+# Sloth SLO spec for the same example service as alerts/slo-example-api.yaml.
+#
+# This is the "generated" alternative to the hand-written rules: you declare
+# the SLI and objective, Sloth emits the recording rules and the
+# multi-window multi-burn-rate alerts. Regenerate with:
+#
+#   make slo-generate     # sloth generate -i slo/example-api.sloth.yaml -o slo/generated/example-api.yaml
+#
+# CI fails if slo/generated/ is out of date. Deploy EITHER this OR the
+# hand-written file for a given service, not both (you would get two pages).
+---
+apiVersion: sloth.slok.dev/v1
+kind: PrometheusServiceLevel
+metadata:
+  name: example-api
+  namespace: monitoring
+  labels:
+    app.kubernetes.io/part-of: k8s-observability-stack
+spec:
+  service: example-api
+  labels:
+    owner: platform
+  slos:
+    - name: requests-availability
+      objective: 99.9
+      description: 99.9% of HTTP requests are not answered with a 5xx.
+      sli:
+        events:
+          errorQuery: sum(rate(http_requests_total{job="example-api", code=~"5.."}[{{.window}}]))
+          totalQuery: sum(rate(http_requests_total{job="example-api"}[{{.window}}]))
+      alerting:
+        name: ExampleApiAvailabilityBudgetBurn
+        labels:
+          category: availability
+        annotations:
+          summary: example-api is burning its availability error budget.
+          runbook_url: https://github.com/ozy31/k8s-observability-stack/blob/main/docs/runbooks.md#sloerrorbudgetburn
+        pageAlert:
+          labels:
+            severity: critical
+        ticketAlert:
+          labels:
+            severity: warning
+
+    - name: requests-latency
+      objective: 99
+      description: 99% of HTTP requests complete in under 250ms.
+      sli:
+        events:
+          errorQuery: |
+            (
+              sum(rate(http_request_duration_seconds_count{job="example-api"}[{{.window}}]))
+              -
+              sum(rate(http_request_duration_seconds_bucket{job="example-api", le="0.25"}[{{.window}}]))
+            )
+          totalQuery: sum(rate(http_request_duration_seconds_count{job="example-api"}[{{.window}}]))
+      alerting:
+        name: ExampleApiLatencyBudgetBurn
+        labels:
+          category: latency
+        annotations:
+          summary: example-api is burning its latency error budget.
+          runbook_url: https://github.com/ozy31/k8s-observability-stack/blob/main/docs/runbooks.md#sloerrorbudgetburn
+        pageAlert:
+          labels:
+            severity: critical
+        ticketAlert:
+          labels:
+            severity: warning
