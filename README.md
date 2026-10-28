@@ -25,6 +25,8 @@ symptoms and SLO burn rates instead of on every CPU spike.
   dashboard JSON and PromQL validation, `alloy validate`, and `helm template`
   piped to `kubeconform`.
 
+
+
 ## Architecture
 
 ```mermaid
